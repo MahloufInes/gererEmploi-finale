@@ -10,7 +10,7 @@ import java.util.Optional;
 
 @Repository
 public interface EmploiDuTempsRepository extends JpaRepository<EmploiDuTemps, Long> {
-    List<EmploiDuTemps> findByPublieTrue();
+
     List<EmploiDuTemps> findBySemestre(String semestre);
     List<EmploiDuTemps> findByAdministrateurId(Long administrateurId);
 }

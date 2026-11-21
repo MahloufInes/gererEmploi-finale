@@ -19,8 +19,7 @@ public class EmploiDuTemps {
     @Column(nullable = false, length = 30)
     private String semestre;
 
-    @Column(nullable = false)
-    private boolean publie = false;
+
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
     @JoinColumn(name = "administrateur_id", nullable = false)

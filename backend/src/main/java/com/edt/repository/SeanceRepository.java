@@ -2,6 +2,7 @@
 package com.edt.repository;
 
 import com.edt.entity.Seance;
+import com.edt.entity.EmploiDuTemps;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -31,19 +32,71 @@ public interface SeanceRepository extends JpaRepository<Seance, Long> {
             LocalDate fin
     );
 
-    // Find existing timetables for one filiere and semester.
     @Query("""
         SELECT DISTINCT s.emploiDuTemps
         FROM Seance s
         WHERE s.groupe.filiere.id = :filiereId
         AND s.emploiDuTemps.semestre = :semestre
     """)
-    List<com.edt.entity.EmploiDuTemps> findTimetablesByFiliereAndSemestre(
+    List<EmploiDuTemps> findTimetablesByFiliereAndSemestre(
             @Param("filiereId") Long filiereId,
             @Param("semestre") String semestre
     );
 
-    // Conflict detection
+    // Consultation des séances existantes par groupe et semestre
+    @Query("""
+        SELECT s
+        FROM Seance s
+        JOIN FETCH s.emploiDuTemps e
+        JOIN FETCH s.creneau c
+        JOIN FETCH s.matiere m
+        JOIN FETCH s.professeur p
+        JOIN FETCH s.salle sa
+        JOIN FETCH s.groupe g
+        WHERE g.id = :groupeId
+        AND e.semestre = :semestre
+    """)
+    List<Seance> consulterSeancesParGroupeEtSemestre(
+            @Param("groupeId") Long groupeId,
+            @Param("semestre") String semestre
+    );
+
+    // Séances d'un groupe pour un semestre (visibles par l'étudiant)
+    @Query("""
+    SELECT s
+    FROM Seance s
+    JOIN FETCH s.emploiDuTemps e
+    JOIN FETCH s.creneau c
+    JOIN FETCH s.matiere m
+    JOIN FETCH s.professeur p
+    JOIN FETCH s.salle sa
+    JOIN FETCH s.groupe g
+    WHERE g.id = :groupeId
+    AND e.semestre = :semestre
+    ORDER BY c.jour, c.heureDebut
+""")
+    List<Seance> consulterSeancesPublieesParGroupeEtSemestre(
+            @Param("groupeId") Long groupeId,
+            @Param("semestre") String semestre
+    );
+
+    // Consultation des séances par professeur
+    @Query("""
+        SELECT s
+        FROM Seance s
+        JOIN FETCH s.creneau c
+        JOIN FETCH s.matiere m
+        JOIN FETCH s.professeur p
+        JOIN FETCH s.salle sa
+        JOIN FETCH s.groupe g
+        WHERE p.id = :professeurId
+        ORDER BY c.jour, c.heureDebut
+    """)
+    List<Seance> consulterSeancesParProfesseur(
+            @Param("professeurId") Long professeurId
+    );
+
+    // Vérification des conflits
     boolean existsBySalleIdAndCreneauIdAndDate(
             Long salleId,
             Long creneauId,
@@ -61,4 +114,13 @@ public interface SeanceRepository extends JpaRepository<Seance, Long> {
             Long creneauId,
             LocalDate date
     );
+    @Query("""
+    SELECT DISTINCT s.emploiDuTemps
+    FROM Seance s
+    WHERE s.groupe.id = :groupeId
+    AND s.emploiDuTemps.semestre = :semestre
+""")
+    List<EmploiDuTemps> findEmploisParGroupeEtSemestre(
+            @Param("groupeId") Long groupeId,
+            @Param("semestre") String semestre);
 }

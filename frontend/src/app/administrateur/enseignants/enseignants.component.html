@@ -5,6 +5,7 @@
 
   <main class="content">
 
+    <!-- EN-TETE -->
     <section class="hero">
       <div>
         <h1>Gestion des enseignants</h1>
@@ -12,6 +13,7 @@
       </div>
     </section>
 
+    <!-- BOUTON AJOUT -->
     <div class="actions">
       <button
         class="btn-add"
@@ -31,19 +33,9 @@
       {{ messageErreur }}
     </p>
 
-    <!-- MOT DE PASSE TEMPORAIRE -->
-    <div *ngIf="motDePasseTemporaire" class="success">
-      <h3>Compte créé avec succès !</h3>
-      <p>Mot de passe temporaire du professeur :</p>
-      <strong>{{ motDePasseTemporaire }}</strong>
-
-      <button type="button" (click)="copierMotDePasse()">
-        Copier le mot de passe
-      </button>
-    </div>
-
     <!-- FORMULAIRE NOUVEL ENSEIGNANT -->
     <div class="modal-overlay" *ngIf="afficherFormulaire">
+
       <div class="modal-container">
 
         <div class="modal-header">
@@ -55,64 +47,101 @@
           <button
             class="close-btn"
             type="button"
-            (click)="annuler()">×</button>
+            (click)="annuler()">
+            ×
+          </button>
         </div>
 
-        <form (ngSubmit)="ajouterProfesseur()" #formProf="ngForm">
+        <form
+          (ngSubmit)="ajouterProfesseur()"
+          #formProf="ngForm">
 
           <div class="form-grid">
 
+            <!-- NOM -->
             <div class="form-group">
-              <label>Nom</label>
+              <label for="nom">Nom</label>
+
               <input
                 type="text"
+                id="nom"
                 name="nom"
                 [(ngModel)]="nouveauProfesseur.nom"
                 required
                 placeholder="Nom">
             </div>
 
+            <!-- PRENOM -->
             <div class="form-group">
-              <label>Prénom</label>
+              <label for="prenom">Prénom</label>
+
               <input
                 type="text"
+                id="prenom"
                 name="prenom"
                 [(ngModel)]="nouveauProfesseur.prenom"
                 required
                 placeholder="Prénom">
             </div>
 
+            <!-- EMAIL -->
             <div class="form-group">
-              <label>Adresse email</label>
+              <label for="email">Adresse email</label>
+
               <input
                 type="email"
+                id="email"
                 name="email"
                 [(ngModel)]="nouveauProfesseur.email"
                 required
+                email
                 placeholder="exemple@email.com">
             </div>
 
+            <!-- MOT DE PASSE SAISI MANUELLEMENT -->
             <div class="form-group">
-              <label>Mot de passe</label>
-              <input
-                type="text"
-                value="Généré automatiquement"
-                disabled>
+              <label for="motDePasse">Mot de passe</label>
+
+              <div style="display: flex; gap: 6px;">
+
+                <input
+                  [type]="afficherMotDePasse ? 'text' : 'password'"
+                  id="motDePasse"
+                  name="motDePasse"
+                  [(ngModel)]="nouveauProfesseur.motDePasse"
+                  autocomplete="new-password"
+                  required
+                  minlength="8"
+                  placeholder="Saisir un mot de passe">
+
+                <button
+                  type="button"
+                  (click)="afficherMotDePasse = !afficherMotDePasse">
+                  {{ afficherMotDePasse ? 'Masquer' : 'Afficher' }}
+                </button>
+
+              </div>
             </div>
 
+            <!-- SPECIALITE -->
             <div class="form-group">
-              <label>Spécialité</label>
+              <label for="specialite">Spécialité</label>
+
               <input
                 type="text"
+                id="specialite"
                 name="specialite"
                 [(ngModel)]="nouveauProfesseur.specialite"
                 required
                 placeholder="Ex : Informatique">
             </div>
 
+            <!-- DEPARTEMENT -->
             <div class="form-group">
-              <label>Département</label>
+              <label for="departementId">Département</label>
+
               <select
+                id="departementId"
                 name="departementId"
                 [(ngModel)]="nouveauProfesseur.departementId"
                 required>
@@ -132,6 +161,7 @@
 
           </div>
 
+          <!-- BOUTONS FORMULAIRE -->
           <div class="modal-footer">
 
             <button
@@ -151,6 +181,7 @@
           </div>
 
         </form>
+
       </div>
     </div>
 
@@ -162,6 +193,7 @@
         <div class="modal-header">
           <div>
             <h2>Matières préférées</h2>
+
             <p *ngIf="professeurSelectionne">
               Professeur :
               {{ professeurSelectionne.nom }}
@@ -172,14 +204,20 @@
           <button
             class="close-btn"
             type="button"
-            (click)="fermerPreferences()">×</button>
+            (click)="fermerPreferences()">
+            ×
+          </button>
         </div>
 
-        <!-- AJOUT MATIERE -->
+        <!-- CHOISIR UNE MATIERE -->
         <div class="form-group">
-          <label>Choisir une matière</label>
+
+          <label for="matiereSelectionnee">
+            Choisir une matière
+          </label>
 
           <select
+            id="matiereSelectionnee"
             name="matiereSelectionnee"
             [(ngModel)]="matiereSelectionnee">
 
@@ -194,16 +232,22 @@
             </option>
 
           </select>
+
         </div>
 
+        <!-- BOUTON AJOUT MATIERE -->
         <div class="modal-footer">
+
           <button
             type="button"
             class="btn-save"
             (click)="ajouterPreference()"
             [disabled]="enregistrementPreference || matiereSelectionnee <= 0">
+
             {{ enregistrementPreference ? 'Ajout...' : 'Ajouter la matière' }}
+
           </button>
+
         </div>
 
         <hr>
@@ -249,11 +293,14 @@
         <span>Total : {{ professeurs.length }}</span>
       </div>
 
-      <p *ngIf="chargement">Chargement...</p>
+      <p *ngIf="chargement">
+        Chargement...
+      </p>
 
       <div class="table-wrap" *ngIf="!chargement">
 
         <table>
+
           <thead>
             <tr>
               <th>ID</th>
@@ -269,6 +316,7 @@
           <tbody>
 
             <tr *ngFor="let p of professeurs">
+
               <td>{{ p.id }}</td>
               <td>{{ p.nom }}</td>
               <td>{{ p.prenom }}</td>
@@ -284,6 +332,7 @@
                   Gérer les matières
                 </button>
               </td>
+
             </tr>
 
             <tr *ngIf="professeurs.length === 0">
@@ -293,9 +342,11 @@
             </tr>
 
           </tbody>
+
         </table>
 
       </div>
+
     </div>
 
   </main>

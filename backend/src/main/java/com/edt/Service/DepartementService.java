@@ -1,5 +1,5 @@
 
-package com.edt.Service;
+package com.edt.service;
 
 import com.edt.dto.DepartementRequest;
 import com.edt.dto.DepartementResponse;

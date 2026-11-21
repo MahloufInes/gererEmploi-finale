@@ -1,0 +1,201 @@
+
+<div class="shell">
+
+  <app-menu-professeur></app-menu-professeur>
+
+  <main class="content">
+
+    <!-- HEADER -->
+    <section class="hero">
+      <div>
+        <h1>Mes disponibilités</h1>
+        <p>
+          Sélectionnez les créneaux horaires pendant lesquels
+          vous êtes disponible pour enseigner.
+        </p>
+      </div>
+
+      <div class="hero-icon">🗓️</div>
+    </section>
+
+    <!-- STATISTIQUES -->
+    <div class="stats">
+
+      <div class="stat-card">
+        <span class="stat-icon">⏰</span>
+        <div>
+          <h3>{{ nombreDisponibilites }}</h3>
+          <p>Créneaux sélectionnés</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <span class="stat-icon">📅</span>
+        <div>
+          <h3>{{ jours.length }}</h3>
+          <p>Jours disponibles</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- LEGENDE -->
+    <div class="legend">
+
+      <div>
+        <span class="legend-color selected-color"></span>
+        <span>Disponible</span>
+      </div>
+
+      <div>
+        <span class="legend-color unselected-color"></span>
+        <span>Non disponible</span>
+      </div>
+
+    </div>
+
+    <!-- GRILLE DES JOURS -->
+    <section class="card">
+
+      <div class="card-header">
+
+        <div>
+          <h2>Planning hebdomadaire</h2>
+          <p>
+            Cliquez sur les séances pour choisir vos disponibilités.
+          </p>
+        </div>
+
+        <span class="total-badge">
+          {{ nombreDisponibilites }} sélectionné(s)
+        </span>
+
+      </div>
+
+      <div class="days-grid">
+
+        <div class="day-card" *ngFor="let jour of jours">
+
+          <!-- TITRE DU JOUR -->
+          <div class="day-header">
+
+            <div class="day-title">
+
+              <span class="day-icon">{{ jour.icon }}</span>
+
+              <div>
+                <h3>{{ jour.nom }}</h3>
+                <span>{{ jour.creneaux.length }} séances</span>
+              </div>
+
+            </div>
+
+            <button
+              type="button"
+              class="select-all-btn"
+              (click)="selectionnerTout(jour)"
+              [disabled]="enregistrementEnCours"
+              [title]="'Sélectionner ou désélectionner toutes les séances de ' + jour.nom">
+
+              Tout
+
+            </button>
+
+          </div>
+
+          <!-- SEANCES -->
+          <div class="sessions-list">
+
+            <button
+              type="button"
+              class="session-card"
+              *ngFor="let creneau of jour.creneaux"
+              [class.selected]="creneau.selected"
+              [attr.aria-pressed]="creneau.selected"
+              [disabled]="enregistrementEnCours"
+              (click)="toggleCreneau(creneau)">
+
+              <div class="session-number">
+                {{ creneau.numero }}
+              </div>
+
+              <div class="session-info">
+
+                <strong>
+                  Séance {{ creneau.numero }}
+                </strong>
+
+                <span>
+                  {{ creneau.heureDebut }} - {{ creneau.heureFin }}
+                </span>
+
+              </div>
+
+              <div class="session-check">
+                <span *ngIf="creneau.selected">✓</span>
+              </div>
+
+            </button>
+
+          </div>
+
+          <!-- TOTAL DU JOUR -->
+          <div class="day-footer">
+            <span>
+              {{ getNombreSelectionne(jour) }}
+              séance(s) sélectionnée(s)
+            </span>
+          </div>
+
+        </div>
+
+      </div>
+
+      <!-- ACTIONS -->
+      <div class="actions">
+
+        <button
+          type="button"
+          class="btn-reset"
+          (click)="reinitialiser()"
+          [disabled]="enregistrementEnCours">
+
+          Réinitialiser
+
+        </button>
+
+        <button
+          type="button"
+          class="btn-save"
+          (click)="enregistrer()"
+          [disabled]="nombreDisponibilites === 0 || enregistrementEnCours">
+
+          <span *ngIf="!enregistrementEnCours">✓</span>
+
+          <span *ngIf="enregistrementEnCours">⏳</span>
+
+          {{ enregistrementEnCours
+            ? 'Enregistrement en cours...'
+            : 'Enregistrer mes disponibilités' }}
+
+        </button>
+
+      </div>
+
+      <!-- MESSAGE SUCCES -->
+      <div class="success-message" *ngIf="messageSucces">
+        <span>✓</span>
+        {{ messageSucces }}
+      </div>
+
+      <!-- MESSAGE ERREUR -->
+      <div class="error-message" *ngIf="messageErreur">
+        <span>⚠</span>
+        {{ messageErreur }}
+      </div>
+
+    </section>
+
+  </main>
+
+</div>

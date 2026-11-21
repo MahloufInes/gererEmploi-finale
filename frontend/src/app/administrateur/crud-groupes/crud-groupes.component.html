@@ -121,6 +121,16 @@
           </option>
         </select>
 
+        <label>Semestres</label>
+<div>
+  <label *ngFor="let s of ['S1','S2','S3','S4','S5','S6']">
+    <input type="checkbox"
+           [checked]="form.semestres.includes(s)"
+           (change)="toggleSemestre(s)" />
+    {{ s }}
+  </label>
+</div>  
+
         <p class="error" *ngIf="erreur">{{ erreur }}</p>
 
         <div class="modal-actions">

@@ -1,8 +1,11 @@
+
 package com.edt.dto;
+
+import java.time.LocalDate;
 
 public record SeanceResponse(
         Long id,
-        String date,
+        LocalDate date,
         String jour,
         String heureDebut,
         String heureFin,
@@ -12,4 +15,5 @@ public record SeanceResponse(
         String professeurNom,
         String salleNom,
         String groupeNom
-) {}
+) {
+}

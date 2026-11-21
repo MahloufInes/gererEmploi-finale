@@ -1,4 +1,3 @@
-
 <div class="shell">
 
   <app-menu></app-menu>
@@ -131,88 +130,84 @@
           </div>
 
         </div>
+
         <p *ngIf="chargementSeances">Chargement de l'emploi du temps...</p>
 
+        <!-- Emploi du temps par groupe -->
+        <div class="table-wrap" *ngFor="let g of seancesParGroupe">
 
-<!-- Emploi du temps par groupe -->
+          <h3>Emploi du temps — Groupe {{ g[0] }}</h3>
 
-<!-- Emploi du temps par groupe -->
-<div class="table-wrap" *ngFor="let g of seancesParGroupe">
+          <div class="edt-scroll">
 
-  <h3>Emploi du temps — Groupe {{ g[0] }}</h3>
+            <table class="edt-table">
 
-  <div class="edt-scroll">
+              <thead>
+                <tr>
+                  <th class="day-header">Jour</th>
 
-    <table class="edt-table">
+                  <th *ngFor="let horaire of horaires">
+                    {{ horaire.debut }} - {{ horaire.fin }}
+                  </th>
+                </tr>
+              </thead>
 
-      <thead>
-        <tr>
-          <th class="day-header">Jour</th>
+              <tbody>
 
-          <th *ngFor="let horaire of horaires">
-            {{ horaire.debut }} - {{ horaire.fin }}
-          </th>
-        </tr>
-      </thead>
+                <tr *ngFor="let jour of jours">
 
-      <tbody>
+                  <th class="day-cell">
+                    {{ jour }}
+                  </th>
 
-        <tr *ngFor="let jour of jours">
+                  <td *ngFor="let horaire of horaires"
+                      class="session-cell">
 
-          <th class="day-cell">
-            {{ jour }}
-          </th>
+                    <ng-container
+                      *ngIf="trouverSeance(g[1], jour, horaire) as seance;
+                             else celluleVide">
 
-          <td *ngFor="let horaire of horaires"
-              class="session-cell">
+                      <div
+                        class="session-card"
+                        [ngClass]="afficherType(seance.type) === 'TP'
+                          ? 'tp'
+                          : 'cours'">
 
-            <ng-container
-              *ngIf="trouverSeance(g[1], jour, horaire) as seance;
-                     else celluleVide">
+                        <strong class="subject-name">
+                          {{ seance.matiereNom }}
+                        </strong>
 
-              <div
-                class="session-card"
-                [ngClass]="afficherType(seance.type) === 'TP'
-                  ? 'tp'
-                  : 'cours'">
+                        <span class="session-type">
+                          {{ afficherType(seance.type) }}
+                        </span>
 
-                <strong class="subject-name">
-                  {{ seance.matiereNom }}
-                </strong>
+                        <span class="professor-name">
+                          {{ seance.professeurNom }}
+                        </span>
 
-                <span class="session-type">
-                  {{ afficherType(seance.type) }}
-                </span>
+                        <span class="room-name">
+                          Salle : {{ seance.salleNom }}
+                        </span>
 
-                <span class="professor-name">
-                  {{ seance.professeurNom }}
-                </span>
+                      </div>
 
-                <span class="room-name">
-                  Salle : {{ seance.salleNom }}
-                </span>
+                    </ng-container>
 
-              </div>
+                    <ng-template #celluleVide>
+                      <div class="empty-cell">—</div>
+                    </ng-template>
 
-            </ng-container>
+                  </td>
 
-            <ng-template #celluleVide>
-              <div class="empty-cell">—</div>
-            </ng-template>
+                </tr>
 
-          </td>
+              </tbody>
 
-        </tr>
+            </table>
 
-      </tbody>
+          </div>
 
-    </table>
-
-  </div>
-
-</div>
-
-
+        </div>
 
       </div>
 

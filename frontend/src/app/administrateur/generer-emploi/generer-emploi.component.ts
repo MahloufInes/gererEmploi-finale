@@ -1,4 +1,3 @@
-
 import { Component, OnInit } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
 
@@ -61,7 +60,6 @@ export class GenererEmploiComponent implements OnInit {
 
   administrateurId = 1;
 
-  // Ordre des jours dans le tableau
   jours = [
     'LUNDI',
     'MARDI',
@@ -77,7 +75,6 @@ export class GenererEmploiComponent implements OnInit {
     this.chargerFilieres();
   }
 
-  // Regrouper les séances par groupe
   get seancesParGroupe(): [string, Seance[]][] {
     const map: { [groupe: string]: Seance[] } = {};
 
@@ -91,7 +88,6 @@ export class GenererEmploiComponent implements OnInit {
     );
   }
 
-  // Récupérer les horaires disponibles
   get horaires(): Horaire[] {
     const map = new Map<string, string>();
 
@@ -104,7 +100,6 @@ export class GenererEmploiComponent implements OnInit {
       .sort((a, b) => a.debut.localeCompare(b.debut));
   }
 
-  // Normaliser les noms des jours
   normaliserJour(jour: string): string {
     return (jour || '')
       .toUpperCase()
@@ -113,7 +108,6 @@ export class GenererEmploiComponent implements OnInit {
       .trim();
   }
 
-  // Vérifier si une séance correspond à une cellule
   trouverSeance(
     groupeSeances: Seance[],
     jour: string,
@@ -126,7 +120,6 @@ export class GenererEmploiComponent implements OnInit {
     );
   }
 
-  // Afficher le type de séance
   afficherType(type?: string): string {
     const valeur = (type || '').toUpperCase();
 
@@ -141,7 +134,6 @@ export class GenererEmploiComponent implements OnInit {
     return valeur || 'SÉANCE';
   }
 
-  // Chargement des filières
   chargerFilieres(): void {
     this.chargementFilieres = true;
     this.erreur = '';
@@ -159,7 +151,6 @@ export class GenererEmploiComponent implements OnInit {
     });
   }
 
-  // Génération de l'emploi du temps
   generer(): void {
     if (this.filiereId === null) {
       this.erreur = 'Veuillez sélectionner une filière.';
@@ -196,7 +187,6 @@ export class GenererEmploiComponent implements OnInit {
     });
   }
 
-  // Chargement des séances générées
   chargerSeances(emploiId: number): void {
     this.chargementSeances = true;
 

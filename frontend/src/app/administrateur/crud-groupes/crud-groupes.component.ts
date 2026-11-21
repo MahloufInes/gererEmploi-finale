@@ -1,4 +1,3 @@
-
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
 
@@ -12,7 +11,9 @@ interface Groupe {
   nom: string;
   effectif: number;
   filiereId: number;
-  filiere: string;
+  filiere?: string;      // name of the filiere (depends on your GroupeResponse)
+  filiereNom?: string;   // alternative field name
+  semestres?: string[];
 }
 
 @Component({
@@ -25,6 +26,8 @@ export class CrudGroupesComponent implements OnInit {
   private apiGroupes = 'http://localhost:8081/api/groupes';
   private apiFilieres = 'http://localhost:8081/api/filieres';
 
+  readonly semestresDisponibles = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
+
   groupes: Groupe[] = [];
   filieres: Filiere[] = [];
 
@@ -34,10 +37,16 @@ export class CrudGroupesComponent implements OnInit {
   erreur = '';
   chargement = false;
 
-  form = {
+  form: {
+    nom: string;
+    effectif: number;
+    filiereId: number;
+    semestres: string[];
+  } = {
     nom: '',
     effectif: 1,
-    filiereId: 0
+    filiereId: 0,
+    semestres: []
   };
 
   constructor(private http: HttpClient) {}
@@ -73,12 +82,16 @@ export class CrudGroupesComponent implements OnInit {
     });
   }
 
+  nomFiliere(g: Groupe): string {
+    return g.filiere ?? g.filiereNom ?? '';
+  }
+
   get filtered(): Groupe[] {
     const q = this.search.toLowerCase().trim();
 
     return this.groupes.filter(g =>
-      g.nom.toLowerCase().includes(q) ||
-      g.filiere.toLowerCase().includes(q)
+      (g.nom ?? '').toLowerCase().includes(q) ||
+      this.nomFiliere(g).toLowerCase().includes(q)
     );
   }
 
@@ -87,7 +100,8 @@ export class CrudGroupesComponent implements OnInit {
     this.form = {
       nom: '',
       effectif: 1,
-      filiereId: this.filieres.length ? this.filieres[0].id : 0
+      filiereId: this.filieres.length ? this.filieres[0].id : 0,
+      semestres: []
     };
     this.erreur = '';
     this.showForm = true;
@@ -99,11 +113,18 @@ export class CrudGroupesComponent implements OnInit {
     this.form = {
       nom: groupe.nom,
       effectif: groupe.effectif,
-      filiereId: groupe.filiereId
+      filiereId: groupe.filiereId,
+      semestres: [...(groupe.semestres ?? [])]
     };
 
     this.erreur = '';
     this.showForm = true;
+  }
+
+  toggleSemestre(s: string): void {
+    this.form.semestres = this.form.semestres.includes(s)
+      ? this.form.semestres.filter(x => x !== s)
+      : [...this.form.semestres, s].sort();
   }
 
   save(): void {
@@ -116,12 +137,18 @@ export class CrudGroupesComponent implements OnInit {
       return;
     }
 
+    if (this.form.semestres.length === 0) {
+      this.erreur = 'Veuillez choisir au moins un semestre.';
+      return;
+    }
+
     this.erreur = '';
 
     const request = {
       nom: this.form.nom.trim(),
-      effectif: this.form.effectif,
-      filiereId: this.form.filiereId
+      effectif: Number(this.form.effectif),
+      filiereId: Number(this.form.filiereId),
+      semestres: this.form.semestres
     };
 
     if (this.editingId === null) {
@@ -132,21 +159,18 @@ export class CrudGroupesComponent implements OnInit {
         },
         error: err => {
           console.error(err);
-          this.erreur = err.error?.message || 'Erreur lors de l’ajout.';
+          this.erreur = this.messageErreur(err, 'Erreur lors de l’ajout.');
         }
       });
     } else {
-      this.http.put(
-        `${this.apiGroupes}/${this.editingId}`,
-        request
-      ).subscribe({
+      this.http.put(`${this.apiGroupes}/${this.editingId}`, request).subscribe({
         next: () => {
           this.close();
           this.chargerGroupes();
         },
         error: err => {
           console.error(err);
-          this.erreur = err.error?.message || 'Erreur lors de la modification.';
+          this.erreur = this.messageErreur(err, 'Erreur lors de la modification.');
         }
       });
     }
@@ -163,8 +187,7 @@ export class CrudGroupesComponent implements OnInit {
       next: () => this.chargerGroupes(),
       error: err => {
         console.error(err);
-        this.erreur = err.error?.message ||
-          'Impossible de supprimer ce groupe.';
+        this.erreur = this.messageErreur(err, 'Impossible de supprimer ce groupe.');
       }
     });
   }
@@ -172,5 +195,11 @@ export class CrudGroupesComponent implements OnInit {
   close(): void {
     this.showForm = false;
     this.editingId = null;
+  }
+
+  private messageErreur(err: any, defaut: string): string {
+    if (err.status === 401) return 'Session expirée. Reconnectez-vous.';
+    if (err.status === 403) return 'Accès refusé : réservé aux administrateurs.';
+    return err.error?.message || defaut;
   }
 }

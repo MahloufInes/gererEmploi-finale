@@ -28,6 +28,8 @@ import { DashboardProfesseurComponent } from './professeur/dashboard-professeur/
 import { DashboardEtudiantComponent } from './etudiant/dashboard-etudiant/dashboard-etudiant.component';
 import { MenuEtudiantComponent } from './app/menu-etudiant/menu-etudiant.component';
 import { MenuProfesseurComponent } from './app/menu-professeur/menu-professeur.component';
+import { MesDisponibilitesComponent } from './professeur/mes-disponibilites/mes-disponibilites.component';
+import { MonEmploiComponent } from './etudiant/mon-emploi/mon-emploi.component';
 
 @NgModule({
   declarations: [
@@ -49,7 +51,9 @@ import { MenuProfesseurComponent } from './app/menu-professeur/menu-professeur.c
     DashboardProfesseurComponent,
     DashboardEtudiantComponent,
     MenuEtudiantComponent,
-    MenuProfesseurComponent
+    MenuProfesseurComponent,
+    MesDisponibilitesComponent,
+    MonEmploiComponent
   ],
   imports: [
     BrowserModule,
@@ -57,8 +61,11 @@ import { MenuProfesseurComponent } from './app/menu-professeur/menu-professeur.c
     FormsModule,
     ReactiveFormsModule,
     HttpClientModule,
-    AppRoutingModule
+    AppRoutingModule,
+   
+    
   ],
+ 
   providers: [
     {
       provide: HTTP_INTERCEPTORS,
@@ -67,5 +74,6 @@ import { MenuProfesseurComponent } from './app/menu-professeur/menu-professeur.c
     }
   ],
   bootstrap: [AppComponent]
+  
 })
 export class AppModule { }

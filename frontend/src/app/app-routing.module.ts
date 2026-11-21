@@ -20,6 +20,9 @@ import { DashboardProfesseurComponent } from './professeur/dashboard-professeur/
 
 import { AuthGuard } from './auth.guard';
 import { DashboardEtudiantComponent } from './etudiant/dashboard-etudiant/dashboard-etudiant.component';
+import { ConsulterEmploisComponent } from './administrateur/consulter-emplois/consulter-emplois.component';
+import { MesDisponibilitesComponent } from './professeur/mes-disponibilites/mes-disponibilites.component';
+import { MonEmploiComponent } from './etudiant/mon-emploi/mon-emploi.component';
 
 const routes: Routes = [
 
@@ -38,6 +41,12 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     data: { roles: ['ADMINISTRATEUR', 'SOUS_ADMINISTRATEUR'] }
   },
+  {
+  path: 'mes-disponibilites',
+  component: MesDisponibilitesComponent,
+  canActivate: [AuthGuard],
+  data: { roles: ['PROFESSEUR'] }
+},
   {
     path: 'crud_Adm',
     component: CrudSousAdminComponent,
@@ -92,6 +101,12 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     data: { roles: ['ADMINISTRATEUR', 'SOUS_ADMINISTRATEUR'] }
   },
+  {
+    path: 'Consulter_emploi',
+    component: ConsulterEmploisComponent,
+    canActivate: [AuthGuard],
+    data: { roles: ['ADMINISTRATEUR', 'SOUS_ADMINISTRATEUR'] }
+  },
 
   // ESPACE PROFESSEUR
   {
@@ -99,6 +114,13 @@ const routes: Routes = [
     component: DashboardProfesseurComponent,
     canActivate: [AuthGuard],
     data: { roles: ['PROFESSEUR'] }
+  },
+
+   {
+    path: 'mon-emploi',
+    component: MonEmploiComponent,
+    canActivate: [AuthGuard],
+    data: { roles: ['ETUDIANT'] }
   },
   {
   path: 'dashboard-etudiant',

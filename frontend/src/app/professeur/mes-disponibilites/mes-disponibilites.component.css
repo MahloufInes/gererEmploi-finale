@@ -1,0 +1,454 @@
+
+/* STRUCTURE PRINCIPALE */
+
+.shell {
+  display: flex;
+  min-height: 100vh;
+  background: #f7f7fc;
+  width: 100%;
+}
+
+.content {
+  flex: 1;
+  min-width: 0;
+  padding: 30px;
+  font-family: Arial, sans-serif;
+}
+
+/* HEADER */
+
+.hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(120deg, #5b4bdb, #8575f5);
+  color: white;
+  padding: 28px 32px;
+  border-radius: 16px;
+  margin-bottom: 25px;
+}
+
+.hero h1 {
+  margin: 0 0 9px;
+  font-size: 27px;
+}
+
+.hero p {
+  margin: 0;
+  opacity: 0.9;
+  font-size: 14px;
+  line-height: 1.6;
+}
+
+.hero-icon {
+  font-size: 43px;
+}
+
+/* STATISTIQUES */
+
+.stats {
+  display: flex;
+  gap: 18px;
+  margin-bottom: 22px;
+  flex-wrap: wrap;
+}
+
+.stat-card {
+  display: flex;
+  align-items: center;
+  gap: 17px;
+  background: white;
+  padding: 18px 22px;
+  border-radius: 14px;
+  min-width: 210px;
+  box-shadow: 0 3px 15px #0000000a;
+}
+
+.stat-icon {
+  font-size: 30px;
+}
+
+.stat-card h3 {
+  margin: 0;
+  color: #5b4bdb;
+  font-size: 25px;
+}
+
+.stat-card p {
+  margin: 5px 0 0;
+  color: #777;
+  font-size: 13px;
+}
+
+/* LEGENDE */
+
+.legend {
+  display: flex;
+  gap: 25px;
+  align-items: center;
+  margin-bottom: 18px;
+  flex-wrap: wrap;
+}
+
+.legend div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #666;
+  font-size: 13px;
+}
+
+.legend-color {
+  width: 13px;
+  height: 13px;
+  border-radius: 4px;
+}
+
+.selected-color {
+  background: #5b4bdb;
+}
+
+.unselected-color {
+  background: #e9e8f0;
+}
+
+/* CARTE PRINCIPALE */
+
+.card {
+  background: white;
+  border-radius: 16px;
+  padding: 25px;
+  box-shadow: 0 3px 15px #0000000a;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 15px;
+  margin-bottom: 24px;
+  flex-wrap: wrap;
+}
+
+.card-header h2 {
+  color: #292545;
+  margin: 0 0 7px;
+  font-size: 21px;
+}
+
+.card-header p {
+  color: #888;
+  margin: 0;
+  font-size: 13px;
+}
+
+.total-badge {
+  background: #eeeaff;
+  color: #5b4bdb;
+  padding: 9px 14px;
+  border-radius: 20px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+/* GRILLE DES JOURS */
+
+.days-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.day-card {
+  background: #fbfaff;
+  border: 1px solid #eeeaf9;
+  border-radius: 13px;
+  padding: 16px;
+  min-width: 0;
+}
+
+/* TITRE JOUR */
+
+.day-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 17px;
+  gap: 8px;
+}
+
+.day-title {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.day-icon {
+  font-size: 23px;
+}
+
+.day-title h3 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  color: #292545;
+}
+
+.day-title span:last-child {
+  font-size: 11px;
+  color: #999;
+}
+
+.select-all-btn {
+  border: none;
+  background: #eeeaff;
+  color: #5b4bdb;
+  border-radius: 7px;
+  padding: 7px 10px;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.select-all-btn:hover {
+  background: #ded8ff;
+}
+
+/* SEANCES */
+
+.sessions-list {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+}
+
+.session-card {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 10px;
+  padding: 11px 10px;
+  border: 1px solid #eae9f1;
+  border-radius: 10px;
+  background: white;
+  text-align: left;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  color: #444;
+}
+
+.session-card:hover {
+  border-color: #8b7df0;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 9px #5b4bdb12;
+}
+
+.session-card.selected {
+  background: #eeeaff;
+  border: 1px solid #7969e9;
+  color: #5546c7;
+}
+
+/* NUMERO SEANCE */
+
+.session-number {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  min-width: 29px;
+  border-radius: 8px;
+  background: #f0eff5;
+  color: #777;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.session-card.selected .session-number {
+  background: #5b4bdb;
+  color: white;
+}
+
+/* INFORMATIONS SEANCE */
+
+.session-info {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+}
+
+.session-info strong {
+  font-size: 12px;
+}
+
+.session-info span {
+  font-size: 11px;
+  color: #888;
+  white-space: nowrap;
+}
+
+.session-card.selected .session-info span {
+  color: #6556cb;
+}
+
+/* CHECK */
+
+.session-check {
+  width: 20px;
+  height: 20px;
+  min-width: 20px;
+  border-radius: 50%;
+  border: 1px solid #ddd9e9;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: bold;
+}
+
+.session-card.selected .session-check {
+  background: #5b4bdb;
+  color: white;
+  border-color: #5b4bdb;
+}
+
+/* PIED DE CARTE JOUR */
+
+.day-footer {
+  border-top: 1px solid #eeeaf5;
+  margin-top: 14px;
+  padding-top: 11px;
+  color: #999;
+  font-size: 11px;
+  text-align: right;
+}
+
+/* BOUTONS */
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 25px;
+  flex-wrap: wrap;
+}
+
+.btn-reset,
+.btn-save {
+  padding: 12px 20px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+
+.btn-reset {
+  background: white;
+  border: 1px solid #ddd9eb;
+  color: #666;
+}
+
+.btn-reset:hover {
+  background: #f5f3ff;
+}
+
+.btn-save {
+  background: linear-gradient(120deg, #5b4bdb, #8575f5);
+  color: white;
+  border: none;
+  box-shadow: 0 4px 10px #5b4bdb30;
+}
+
+.btn-save:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px #5b4bdb40;
+}
+
+.btn-save:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.btn-save span {
+  margin-right: 7px;
+}
+
+/* MESSAGE */
+
+.success-message {
+  margin-top: 18px;
+  padding: 14px;
+  background: #eaf8ef;
+  color: #23834a;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+/* RESPONSIVE */
+
+@media (max-width: 1100px) {
+  .days-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .content {
+    padding: 15px;
+  }
+
+  .hero {
+    padding: 22px;
+  }
+
+  .hero h1 {
+    font-size: 22px;
+  }
+
+  .hero-icon {
+    font-size: 32px;
+  }
+
+  .days-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card {
+    padding: 16px;
+  }
+
+  .card-header {
+    align-items: flex-start;
+  }
+
+  .actions {
+    flex-direction: column-reverse;
+  }
+
+  .btn-reset,
+  .btn-save {
+    width: 100%;
+  }
+}
+
+.error-message {
+  margin-top: 18px;
+  padding: 14px;
+  background: #fff0f0;
+  color: #c62828;
+  border-radius: 9px;
+  font-size: 13px;
+}
+
+.btn-save:disabled,
+.btn-reset:disabled,
+.session-card:disabled,
+.select-all-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+

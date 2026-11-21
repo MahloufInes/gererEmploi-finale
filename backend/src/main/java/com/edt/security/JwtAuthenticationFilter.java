@@ -1,3 +1,4 @@
+
 package com.edt.security;
 
 import jakarta.servlet.FilterChain;
@@ -35,11 +36,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             FilterChain filterChain)
             throws ServletException, IOException {
 
-        // 1. Read Authorization header
         final String authorizationHeader =
                 request.getHeader("Authorization");
 
-        // 2. Check if the header contains a Bearer token
         if (authorizationHeader == null ||
                 !authorizationHeader.startsWith("Bearer ")) {
 
@@ -47,27 +46,21 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             return;
         }
 
-        // 3. Extract the token
         final String token = authorizationHeader.substring(7);
 
         try {
 
-            // 4. Extract email from token
             String email = jwtService.extractEmail(token);
 
-            // 5. Check if user is not already authenticated
             if (email != null &&
                     SecurityContextHolder.getContext()
                             .getAuthentication() == null) {
 
-                // 6. Load user from database
                 UserDetails userDetails =
                         userDetailsService.loadUserByUsername(email);
 
-                // 7. Validate token
                 if (jwtService.isTokenValid(token, userDetails.getUsername())) {
 
-                    // 8. Create authentication object
                     UsernamePasswordAuthenticationToken authentication =
                             new UsernamePasswordAuthenticationToken(
                                     userDetails,
@@ -80,7 +73,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     .buildDetails(request)
                     );
 
-                    // 9. Save authentication in SecurityContext
                     SecurityContextHolder.getContext()
                             .setAuthentication(authentication);
                 }
@@ -90,7 +82,6 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             SecurityContextHolder.clearContext();
         }
 
-        // 10. Continue to the next filter
         filterChain.doFilter(request, response);
     }
 }

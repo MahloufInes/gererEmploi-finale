@@ -4,6 +4,7 @@
 
   <main class="content">
 
+    <!-- En-tête -->
     <section class="hero">
       <div>
         <h1>Mon emploi du temps</h1>
@@ -12,6 +13,7 @@
       <div class="hero-icon">📅</div>
     </section>
 
+    <!-- Statistiques -->
     <div class="stats">
       <div class="stat-card">
         <span class="stat-icon">📚</span>
@@ -22,14 +24,17 @@
       </div>
     </div>
 
+    <!-- Chargement -->
     <div *ngIf="chargement" class="message">
       Chargement de votre emploi du temps...
     </div>
 
+    <!-- Erreur -->
     <div *ngIf="messageErreur" class="message-erreur">
       {{ messageErreur }}
     </div>
 
+    <!-- Contenu -->
     <div class="card" *ngIf="!chargement && !messageErreur">
 
       <div class="card-header">
@@ -37,12 +42,17 @@
         <span>{{ seances.length }} séance(s)</span>
       </div>
 
+      <!-- Aucune séance -->
       <div *ngIf="seances.length === 0" class="empty-state">
         <div class="empty-icon">📅</div>
         <h3>Aucun cours programmé</h3>
-        <p>Votre emploi du temps sera affiché ici dès que les séances seront programmées.</p>
+        <p>
+          Votre emploi du temps sera affiché ici dès que
+          les séances seront programmées.
+        </p>
       </div>
 
+      <!-- Tableau des séances -->
       <div class="table-wrap" *ngIf="seances.length > 0">
         <table>
           <thead>
@@ -51,6 +61,7 @@
               <th>Jour</th>
               <th>Horaire</th>
               <th>Matière</th>
+              <th>Professeur</th>
               <th>Groupe</th>
               <th>Salle</th>
               <th>Type</th>
@@ -62,12 +73,19 @@
             <tr *ngFor="let seance of seances">
               <td>{{ seance.date || '-' }}</td>
               <td>{{ seance.jour }}</td>
-              <td>{{ seance.heureDebut }} - {{ seance.heureFin }}</td>
-              <td>{{ seance.nomMatiere }}</td>
-              <td>{{ seance.nomGroupe }}</td>
-              <td>{{ seance.nomSalle }}</td>
-              <td><span class="type-badge">{{ seance.type }}</span></td>
-              <td><span class="status-badge">{{ seance.statut }}</span></td>
+              <td>
+                {{ seance.heureDebut }} - {{ seance.heureFin }}
+              </td>
+              <td>{{ seance.matiereNom }}</td>
+              <td>{{ seance.professeurNom }}</td>
+              <td>{{ seance.groupeNom }}</td>
+              <td>{{ seance.salleNom }}</td>
+              <td>
+                <span class="type-badge">{{ seance.type }}</span>
+              </td>
+              <td>
+                <span class="status-badge">{{ seance.statut }}</span>
+              </td>
             </tr>
           </tbody>
         </table>

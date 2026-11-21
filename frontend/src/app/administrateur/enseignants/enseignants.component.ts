@@ -45,13 +45,13 @@ export class EnseignantsComponent implements OnInit {
 
   afficherFormulaire = false;
   enregistrement = false;
-
-  motDePasseTemporaire = '';
+  afficherMotDePasse = false;
 
   nouveauProfesseur: ProfesseurRequest = {
     nom: '',
     prenom: '',
     email: '',
+    motDePasse: '',
     specialite: '',
     departementId: 0
   };
@@ -93,7 +93,10 @@ export class EnseignantsComponent implements OnInit {
       },
       error: (error) => {
         console.error('Erreur de chargement', error);
-        this.messageErreur = 'Impossible de charger les professeurs.';
+        this.messageErreur = this.messageHttp(
+          error,
+          'Impossible de charger les professeurs.'
+        );
         this.chargement = false;
       }
     });
@@ -106,16 +109,19 @@ export class EnseignantsComponent implements OnInit {
       },
       error: (error) => {
         console.error('Erreur départements', error);
-        this.messageErreur = 'Impossible de charger les départements.';
+        this.messageErreur = this.messageHttp(
+          error,
+          'Impossible de charger les départements.'
+        );
       }
     });
   }
 
   ouvrirFormulaire(): void {
+    this.reinitialiserFormulaire();
     this.afficherFormulaire = true;
     this.messageErreur = '';
     this.messageSucces = '';
-    this.motDePasseTemporaire = '';
   }
 
   annuler(): void {
@@ -128,45 +134,61 @@ export class EnseignantsComponent implements OnInit {
       nom: '',
       prenom: '',
       email: '',
+      motDePasse: '',
       specialite: '',
       departementId: 0
     };
+
+    this.afficherMotDePasse = false;
   }
 
   ajouterProfesseur(): void {
     this.messageErreur = '';
     this.messageSucces = '';
-    this.motDePasseTemporaire = '';
+
+    const p = this.nouveauProfesseur;
 
     if (
-      !this.nouveauProfesseur.nom.trim() ||
-      !this.nouveauProfesseur.prenom.trim() ||
-      !this.nouveauProfesseur.email.trim() ||
-      !this.nouveauProfesseur.specialite.trim() ||
-      this.nouveauProfesseur.departementId <= 0
+      !p.nom.trim() ||
+      !p.prenom.trim() ||
+      !p.email.trim() ||
+      !p.specialite.trim() ||
+      Number(p.departementId) <= 0
     ) {
       this.messageErreur = 'Veuillez remplir tous les champs.';
       return;
     }
 
     const emailValide =
-      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(
-        this.nouveauProfesseur.email
-      );
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email.trim());
 
     if (!emailValide) {
-      this.messageErreur = 'Veuillez saisir une adresse email valide.';
+      this.messageErreur =
+        'Veuillez saisir une adresse email valide.';
+      return;
+    }
+
+    if (!p.motDePasse || p.motDePasse.length < 8) {
+      this.messageErreur =
+        'Le mot de passe doit contenir au moins 8 caractères.';
       return;
     }
 
     this.enregistrement = true;
 
-    this.professeurService.ajouter(this.nouveauProfesseur).subscribe({
-      next: (response) => {
-        this.messageSucces = 'Enseignant ajouté avec succès !';
+    const request: ProfesseurRequest = {
+      nom: p.nom.trim(),
+      prenom: p.prenom.trim(),
+      email: p.email.trim().toLowerCase(),
+      motDePasse: p.motDePasse,
+      specialite: p.specialite.trim(),
+      departementId: Number(p.departementId)
+    };
 
-        this.motDePasseTemporaire =
-          response.motDePasseTemporaire;
+    this.professeurService.ajouter(request).subscribe({
+      next: () => {
+        this.messageSucces =
+          'Enseignant ajouté avec succès !';
 
         this.enregistrement = false;
         this.afficherFormulaire = false;
@@ -177,37 +199,25 @@ export class EnseignantsComponent implements OnInit {
 
       error: (error) => {
         console.error('Erreur ajout professeur', error);
-
         this.enregistrement = false;
 
         if (error.status === 409) {
-          this.messageErreur = 'Cette adresse email existe déjà.';
+          this.messageErreur =
+            'Cette adresse email existe déjà.';
         } else if (error.status === 404) {
           this.messageErreur = 'Département introuvable.';
         } else {
-          this.messageErreur =
-            error.error?.message ||
-            'Erreur lors de l’ajout de l’enseignant.';
+          this.messageErreur = this.messageHttp(
+            error,
+            'Erreur lors de l’ajout de l’enseignant.'
+          );
         }
       }
     });
   }
 
-  copierMotDePasse(): void {
-    if (!this.motDePasseTemporaire) {
-      return;
-    }
+  // Gestion des préférences
 
-    navigator.clipboard.writeText(this.motDePasseTemporaire)
-      .then(() => {
-        this.messageSucces = 'Mot de passe copié avec succès !';
-      })
-      .catch(() => {
-        this.messageErreur = 'Impossible de copier le mot de passe.';
-      });
-  }
-
-  // Ouvrir la gestion des préférences d'un professeur
   ouvrirPreferences(professeur: Professeur): void {
     this.professeurSelectionne = professeur;
     this.afficherPreferences = true;
@@ -228,7 +238,6 @@ export class EnseignantsComponent implements OnInit {
     this.matiereSelectionnee = 0;
   }
 
-  // Charger toutes les matières
   chargerMatieres(): void {
     this.matiereService.getAll().subscribe({
       next: (data) => {
@@ -236,12 +245,14 @@ export class EnseignantsComponent implements OnInit {
       },
       error: (error) => {
         console.error('Erreur chargement matières', error);
-        this.messageErreur = 'Impossible de charger les matières.';
+        this.messageErreur = this.messageHttp(
+          error,
+          'Impossible de charger les matières.'
+        );
       }
     });
   }
 
-  // Charger les préférences du professeur sélectionné
   chargerPreferences(): void {
     if (!this.professeurSelectionne) {
       return;
@@ -260,32 +271,35 @@ export class EnseignantsComponent implements OnInit {
       },
       error: (error) => {
         console.error('Erreur chargement préférences', error);
-        this.messageErreur =
-          'Impossible de charger les matières préférées.';
+        this.messageErreur = this.messageHttp(
+          error,
+          'Impossible de charger les matières préférées.'
+        );
         this.chargementPreferences = false;
       }
     });
   }
 
-  // Vérifier si une matière est déjà préférée
   estMatiereSelectionnee(matiereId: number): boolean {
     return this.preferences.some(
       preference => preference.matiere.id === matiereId
     );
   }
 
-  // Ajouter une préférence
   ajouterPreference(): void {
     if (
       !this.professeurSelectionne ||
-      this.matiereSelectionnee <= 0
+      Number(this.matiereSelectionnee) <= 0
     ) {
       this.messageErreur = 'Veuillez choisir une matière.';
       return;
     }
 
-    if (this.estMatiereSelectionnee(this.matiereSelectionnee)) {
-      this.messageErreur = 'Cette matière est déjà sélectionnée.';
+    if (this.estMatiereSelectionnee(
+      Number(this.matiereSelectionnee)
+    )) {
+      this.messageErreur =
+        'Cette matière est déjà sélectionnée.';
       return;
     }
 
@@ -294,7 +308,7 @@ export class EnseignantsComponent implements OnInit {
 
     const params = new HttpParams()
       .set('professeurId', this.professeurSelectionne.id)
-      .set('matiereId', this.matiereSelectionnee);
+      .set('matiereId', Number(this.matiereSelectionnee));
 
     this.http.post<PreferenceMatiere>(
       this.apiPreferences,
@@ -302,22 +316,24 @@ export class EnseignantsComponent implements OnInit {
       { params }
     ).subscribe({
       next: () => {
-        this.messageSucces = 'Matière ajoutée aux préférences !';
+        this.messageSucces =
+          'Matière ajoutée aux préférences !';
+
         this.matiereSelectionnee = 0;
         this.enregistrementPreference = false;
         this.chargerPreferences();
       },
       error: (error) => {
         console.error('Erreur ajout préférence', error);
-        this.messageErreur =
-          error.error?.message ||
-          'Erreur lors de l’ajout de la préférence.';
+        this.messageErreur = this.messageHttp(
+          error,
+          'Erreur lors de l’ajout de la préférence.'
+        );
         this.enregistrementPreference = false;
       }
     });
   }
 
-  // Supprimer une préférence
   supprimerPreference(matiereId: number): void {
     if (!this.professeurSelectionne) {
       return;
@@ -332,22 +348,40 @@ export class EnseignantsComponent implements OnInit {
       { params }
     ).subscribe({
       next: () => {
-        this.messageSucces = 'Préférence supprimée avec succès !';
+        this.messageSucces =
+          'Préférence supprimée avec succès !';
+
         this.chargerPreferences();
       },
       error: (error) => {
         console.error('Erreur suppression préférence', error);
-        this.messageErreur =
-          error.error?.message ||
-          'Erreur lors de la suppression.';
+        this.messageErreur = this.messageHttp(
+          error,
+          'Erreur lors de la suppression.'
+        );
       }
     });
   }
 
-  // Matières qui ne sont pas encore sélectionnées
   get matieresDisponibles(): Matiere[] {
     return this.matieres.filter(
       matiere => !this.estMatiereSelectionnee(matiere.id)
     );
+  }
+
+  private messageHttp(error: any, defaut: string): string {
+    if (error.status === 401) {
+      return 'Session expirée. Reconnectez-vous.';
+    }
+
+    if (error.status === 403) {
+      return 'Accès refusé : réservé aux administrateurs.';
+    }
+
+    if (error.status === 0) {
+      return 'Serveur injoignable.';
+    }
+
+    return error.error?.message || defaut;
   }
 }

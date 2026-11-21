@@ -1,0 +1,50 @@
+
+<div class="dashboard-container">
+
+  <app-menu></app-menu>
+
+  <main class="content">
+
+    <section class="hero">
+      <h1>Tableau de bord</h1>
+      <p>Bienvenue dans votre espace de gestion EduPlanning.</p>
+    </section>
+
+    <div class="stats-container">
+
+      <div class="stat-card">
+        <div class="stat-icon">🎓</div>
+        <div>
+          <h3>Étudiants</h3>
+          <p>{{ nombreEtudiants }}</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">📚</div>
+        <div>
+          <h3>Filières</h3>
+          <p>{{ nombreFilieres }}</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">👥</div>
+        <div>
+          <h3>Groupes</h3>
+          <p>{{ nombreGroupes }}</p>
+        </div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-icon">👨‍🏫</div>
+        <div>
+          <h3>Enseignants</h3>
+          <p>{{ nombreEnseignants }}</p>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>

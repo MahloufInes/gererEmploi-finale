@@ -17,6 +17,7 @@ export interface ProfesseurRequest {
   nom: string;
   prenom: string;
   email: string;
+  motDePasse: string;
   specialite: string;
   departementId: number;
 }
@@ -43,15 +44,23 @@ export class ProfesseurService {
     return this.http.get<number>(`${this.apiUrl}/count`);
   }
 
-  ajouter(professeur: ProfesseurRequest): Observable<ProfesseurCreationResponse> {
+  ajouter(
+    professeur: ProfesseurRequest
+  ): Observable<ProfesseurCreationResponse> {
     return this.http.post<ProfesseurCreationResponse>(
       this.apiUrl,
       professeur
     );
   }
 
-  modifier(id: number, professeur: ProfesseurRequest): Observable<Professeur> {
-    return this.http.put<Professeur>(`${this.apiUrl}/${id}`, professeur);
+  modifier(
+    id: number,
+    professeur: ProfesseurRequest
+  ): Observable<Professeur> {
+    return this.http.put<Professeur>(
+      `${this.apiUrl}/${id}`,
+      professeur
+    );
   }
 
   supprimer(id: number): Observable<void> {

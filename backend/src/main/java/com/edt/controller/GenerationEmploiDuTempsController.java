@@ -6,6 +6,7 @@ import com.edt.entity.EmploiDuTemps;
 import com.edt.repository.SeanceRepository;
 
 import lombok.RequiredArgsConstructor;
+
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
@@ -28,15 +29,17 @@ public class GenerationEmploiDuTempsController {
             @RequestParam String semestre,
             @RequestParam Long administrateurId) {
 
-        EmploiDuTemps emploi = generationService.genererEmploiDuTemps(
-                filiereId,
-                semestre,
-                administrateurId
-        );
+        EmploiDuTemps emploi =
+                generationService.genererEmploiDuTemps(
+                        filiereId,
+                        semestre,
+                        administrateurId
+                );
 
-        int nombreSeances = seanceRepository
-                .findByEmploiDuTempsId(emploi.getId())
-                .size();
+        int nombreSeances =
+                seanceRepository.findByEmploiDuTempsId(
+                        emploi.getId()
+                ).size();
 
         return ResponseEntity.ok(
                 Map.of(
@@ -51,12 +54,11 @@ public class GenerationEmploiDuTempsController {
     @GetMapping("/emploi/{emploiId}/seances")
     @Transactional(readOnly = true)
     public List<SeanceResponse> getSeances(@PathVariable Long emploiId) {
-
         return seanceRepository.findByEmploiDuTempsId(emploiId)
                 .stream()
                 .map(s -> new SeanceResponse(
                         s.getId(),
-                        s.getDate() != null ? s.getDate().toString() : null,
+                        s.getDate(),
                         String.valueOf(s.getCreneau().getJour()),
                         String.valueOf(s.getCreneau().getHeureDebut()),
                         String.valueOf(s.getCreneau().getHeureFin()),
@@ -65,31 +67,9 @@ public class GenerationEmploiDuTempsController {
                         s.getMatiere().getNom(),
                         s.getProfesseur().getNom(),
                         s.getSalle().getNom(),
-                        s.getGroupe().getNom()
-                ))
+                        s.getGroupe().getNom()))
                 .toList();
     }
 
-    @GetMapping("/professeur/{professeurId}/seances")
-    @Transactional(readOnly = true)
-    public List<SeanceResponse> getSeancesProfesseur(
-            @PathVariable Long professeurId) {
 
-        return seanceRepository.findByProfesseurId(professeurId)
-                .stream()
-                .map(s -> new SeanceResponse(
-                        s.getId(),
-                        s.getDate() != null ? s.getDate().toString() : null,
-                        String.valueOf(s.getCreneau().getJour()),
-                        String.valueOf(s.getCreneau().getHeureDebut()),
-                        String.valueOf(s.getCreneau().getHeureFin()),
-                        s.getType() != null ? s.getType().name() : null,
-                        s.getStatut() != null ? s.getStatut().name() : null,
-                        s.getMatiere().getNom(),
-                        s.getProfesseur().getNom(),
-                        s.getSalle().getNom(),
-                        s.getGroupe().getNom()
-                ))
-                .toList();
-    }
 }

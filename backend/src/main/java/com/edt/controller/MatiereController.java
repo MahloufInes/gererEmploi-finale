@@ -1,6 +1,6 @@
 package com.edt.controller;
 
-import com.edt.Service.MatiereService;
+import com.edt.service.MatiereService;
 import com.edt.dto.MatiereRequest;
 import com.edt.dto.MatiereResponse;
 

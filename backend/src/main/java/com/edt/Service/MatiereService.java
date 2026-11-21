@@ -1,4 +1,4 @@
-package com.edt.Service;
+package com.edt.service;
 
 import com.edt.dto.MatiereRequest;
 import com.edt.dto.MatiereResponse;

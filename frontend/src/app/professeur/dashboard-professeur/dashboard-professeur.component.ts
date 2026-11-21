@@ -9,10 +9,10 @@ interface Seance {
   heureFin: string;
   type: string;
   statut: string;
-  nomMatiere: string;
-  nomProfesseur: string;
-  nomSalle: string;
-  nomGroupe: string;
+  matiereNom: string;
+  professeurNom: string;
+  salleNom: string;
+  groupeNom: string;
 }
 
 @Component({
@@ -21,6 +21,9 @@ interface Seance {
   styleUrls: ['./dashboard-professeur.component.css']
 })
 export class DashboardProfesseurComponent implements OnInit {
+
+  private readonly api = 'http://localhost:8081/api/seances/mon-prof-emploi';
+  private readonly ordreJours = ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE'];
 
   seances: Seance[] = [];
   chargement = false;
@@ -33,47 +36,31 @@ export class DashboardProfesseurComponent implements OnInit {
   }
 
   chargerEmploiDuTemps(): void {
-    const user = localStorage.getItem('user');
     const token = localStorage.getItem('token');
 
-    if (!user || !token) {
+    if (!token) {
       this.messageErreur = 'Utilisateur non connecté.';
       return;
     }
 
-    try {
-      const utilisateur = JSON.parse(user);
-      const professeurId = utilisateur.id;
+    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
+    this.chargement = true;
+    this.messageErreur = '';
 
-      if (!professeurId || utilisateur.role !== 'PROFESSEUR') {
-        this.messageErreur = 'Compte professeur invalide.';
-        return;
+    this.http.get<Seance[]>(this.api, { headers }).subscribe({
+      next: (data) => {
+        this.seances = data.sort((a, b) =>
+          this.ordreJours.indexOf(a.jour) - this.ordreJours.indexOf(b.jour)
+          || a.heureDebut.localeCompare(b.heureDebut));
+        this.chargement = false;
+      },
+      error: (err) => {
+        console.error('Erreur emploi du temps :', err);
+        if (err.status === 403) this.messageErreur = 'Accès refusé (compte non professeur).';
+        else if (err.status === 401) this.messageErreur = 'Session expirée, reconnectez-vous.';
+        else this.messageErreur = 'Impossible de charger votre emploi du temps.';
+        this.chargement = false;
       }
-
-      const headers = new HttpHeaders({
-        Authorization: `Bearer ${token}`
-      });
-
-      this.chargement = true;
-
-      this.http.get<Seance[]>(
-        `http://localhost:8081/api/generation/professeur/${professeurId}/seances`,
-        { headers }
-      ).subscribe({
-        next: (data: Seance[]) => {
-          this.seances = data;
-          this.chargement = false;
-        },
-        error: (error: any) => {
-          console.error('Erreur emploi du temps :', error);
-          this.messageErreur = 'Impossible de charger votre emploi du temps.';
-          this.chargement = false;
-        }
-      });
-
-    } catch (error) {
-      console.error(error);
-      this.messageErreur = 'Informations utilisateur invalides.';
-    }
+    });
   }
 }

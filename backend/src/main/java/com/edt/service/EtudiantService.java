@@ -34,9 +34,11 @@ public class EtudiantService {
 
     @Transactional
     public EtudiantResponse ajouter(EtudiantRequest request) {
+
         if (request.motDePasse() == null || request.motDePasse().isBlank()) {
             throw new RuntimeException("Le mot de passe est obligatoire.");
         }
+
         if (etudiantRepository.findByEmail(request.email()).isPresent()) {
             throw new RuntimeException("Cet email existe déjà.");
         }
@@ -62,6 +64,7 @@ public class EtudiantService {
 
         return convertir(saved);
     }
+
     @Transactional
     public EtudiantResponse modifier(Long id, EtudiantRequest request) {
 
@@ -69,14 +72,12 @@ public class EtudiantService {
                 .orElseThrow(() ->
                         new RuntimeException("Étudiant introuvable."));
 
-        // Vérifier si l'email appartient à un autre étudiant
         etudiantRepository.findByEmail(request.email())
                 .filter(existant -> !existant.getId().equals(id))
                 .ifPresent(existant -> {
                     throw new RuntimeException("Cet email existe déjà.");
                 });
 
-        // Vérifier si le matricule appartient à un autre étudiant
         etudiantRepository.findByMatricule(request.matricule())
                 .filter(existant -> !existant.getId().equals(id))
                 .ifPresent(existant -> {
@@ -93,7 +94,6 @@ public class EtudiantService {
         e.setMatricule(request.matricule());
         e.setGroupe(groupe);
 
-        // Modifier le mot de passe uniquement s'il est renseigné
         if (request.motDePasse() != null
                 && !request.motDePasse().isBlank()) {
             e.setMotDePasse(passwordEncoder.encode(request.motDePasse()));
@@ -111,15 +111,29 @@ public class EtudiantService {
 
         etudiantRepository.delete(e);
     }
+
     @Transactional(readOnly = true)
     public List<EtudiantResponse> afficherTous() {
+
         return etudiantRepository.findAll()
                 .stream()
                 .map(this::convertir)
                 .toList();
     }
 
+    // NOUVEAU : profil de l'étudiant connecté
+    @Transactional(readOnly = true)
+    public EtudiantResponse afficherMonProfil(String email) {
+
+        Etudiant etudiant = etudiantRepository.findByEmail(email)
+                .orElseThrow(() ->
+                        new RuntimeException("Étudiant introuvable."));
+
+        return convertir(etudiant);
+    }
+
     private EtudiantResponse convertir(Etudiant e) {
+
         return new EtudiantResponse(
                 e.getId(),
                 e.getNom(),

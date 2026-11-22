@@ -1,0 +1,142 @@
+<div class="page-layout">
+
+  <!-- Menu professeur -->
+  <app-menu-professeur></app-menu-professeur>
+
+  <!-- Contenu principal -->
+  <main class="page-content">
+
+    <div class="preferences-page">
+
+      <div class="page-header">
+        <div>
+          <span class="eyebrow">ESPACE PROFESSEUR</span>
+          <h1>Mes préférences de matières</h1>
+          <p>
+            Choisissez les matières que vous souhaitez enseigner.
+            Vous pouvez modifier vos choix à tout moment.
+          </p>
+        </div>
+
+        <div class="header-icon">📚</div>
+      </div>
+
+      <!-- Messages -->
+      <div class="alert success" *ngIf="messageSucces">
+        ✓ {{ messageSucces }}
+      </div>
+
+      <div class="alert error" *ngIf="messageErreur">
+        ⚠ {{ messageErreur }}
+      </div>
+
+      <!-- Statistiques -->
+      <div class="stats-card">
+        <div class="stat-icon">📖</div>
+        <div>
+          <span class="stat-number">{{ nombreSelectionnees }}</span>
+          <span class="stat-label">Matières sélectionnées</span>
+        </div>
+      </div>
+
+      <!-- Chargement -->
+      <div class="loading" *ngIf="chargement">
+        <div class="spinner"></div>
+        <p>Chargement des matières...</p>
+      </div>
+
+      <ng-container *ngIf="!chargement">
+
+        <!-- Recherche -->
+        <div class="search-container">
+          <span class="search-icon">⌕</span>
+          <input
+            type="text"
+            [(ngModel)]="recherche"
+            placeholder="Rechercher une matière ou un département..."
+            [disabled]="enregistrementEnCours"
+          />
+        </div>
+
+        <!-- Liste des matières -->
+        <div class="section-header">
+          <div>
+            <h2>Liste des matières</h2>
+            <p>Sélectionnez les matières qui vous intéressent.</p>
+          </div>
+
+          <span class="counter">
+            {{ matieresFiltrees.length }} matière(s)
+          </span>
+        </div>
+
+        <div class="empty-state" *ngIf="matieresFiltrees.length === 0">
+          <span>🔎</span>
+          <h3>Aucune matière trouvée</h3>
+          <p>Essayez avec un autre mot-clé.</p>
+        </div>
+
+        <div class="matieres-grid" *ngIf="matieresFiltrees.length > 0">
+          <button
+            type="button"
+            class="matiere-card"
+            *ngFor="let matiere of matieresFiltrees"
+            [class.selected]="estSelectionnee(matiere.id)"
+            [disabled]="enregistrementEnCours"
+            (click)="toggleMatiere(matiere.id)"
+          >
+            <div class="matiere-icon">📘</div>
+
+            <div class="matiere-info">
+              <h3>{{ matiere.nom }}</h3>
+              <p>
+                {{ matiere.departementNom || 'Département non renseigné' }}
+              </p>
+            </div>
+
+            <div class="selection-indicator">
+              <span *ngIf="estSelectionnee(matiere.id)">✓</span>
+            </div>
+          </button>
+        </div>
+
+        <!-- Actions -->
+        <div class="actions">
+          <div class="selection-summary">
+            <strong>{{ nombreSelectionnees }}</strong>
+            matière(s) sélectionnée(s)
+          </div>
+
+          <div class="action-buttons">
+            <button
+              type="button"
+              class="reset-button"
+              (click)="reinitialiser()"
+              [disabled]="enregistrementEnCours"
+            >
+              Annuler les modifications
+            </button>
+
+            <button
+              type="button"
+              class="save-button"
+              (click)="enregistrer()"
+              [disabled]="enregistrementEnCours ||
+                (nombreAjouts === 0 && nombreSuppressions === 0)"
+            >
+              <span *ngIf="!enregistrementEnCours">
+                Enregistrer mes préférences
+              </span>
+
+              <span *ngIf="enregistrementEnCours">
+                Enregistrement...
+              </span>
+            </button>
+          </div>
+        </div>
+
+      </ng-container>
+
+    </div>
+  </main>
+</div>

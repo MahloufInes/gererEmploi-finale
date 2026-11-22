@@ -1,18 +1,15 @@
+
 import { Component, OnInit } from '@angular/core';
 import { HttpClient, HttpHeaders } from '@angular/common/http';
 
-interface Seance {
+interface Professeur {
   id: number;
-  date: string;
-  jour: string;
-  heureDebut: string;
-  heureFin: string;
-  type: string;
-  statut: string;
-  matiereNom: string;
-  professeurNom: string;
-  salleNom: string;
-  groupeNom: string;
+  nom: string;
+  prenom: string;
+  email: string;
+  specialite: string;
+  departementId: number;
+  nomDepartement: string;
 }
 
 @Component({
@@ -22,45 +19,50 @@ interface Seance {
 })
 export class DashboardProfesseurComponent implements OnInit {
 
-  private readonly api = 'http://localhost:8081/api/seances/mon-prof-emploi';
-  private readonly ordreJours = ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE'];
+  professeur: Professeur | null = null;
 
-  seances: Seance[] = [];
-  chargement = false;
+  chargement = true;
   messageErreur = '';
 
   constructor(private http: HttpClient) {}
 
   ngOnInit(): void {
-    this.chargerEmploiDuTemps();
+    this.chargerMonProfil();
   }
 
-  chargerEmploiDuTemps(): void {
+  chargerMonProfil(): void {
+
     const token = localStorage.getItem('token');
 
     if (!token) {
-      this.messageErreur = 'Utilisateur non connecté.';
+      this.messageErreur = 'Vous devez vous connecter pour accéder à votre espace.';
+      this.chargement = false;
       return;
     }
 
-    const headers = new HttpHeaders({ Authorization: `Bearer ${token}` });
-    this.chargement = true;
-    this.messageErreur = '';
+    const headers = new HttpHeaders({
+      Authorization: `Bearer ${token}`
+    });
 
-    this.http.get<Seance[]>(this.api, { headers }).subscribe({
+    this.http.get<Professeur>(
+      'http://localhost:8081/api/professeurs/mon-profil',
+      { headers }
+    ).subscribe({
+
       next: (data) => {
-        this.seances = data.sort((a, b) =>
-          this.ordreJours.indexOf(a.jour) - this.ordreJours.indexOf(b.jour)
-          || a.heureDebut.localeCompare(b.heureDebut));
+        this.professeur = data;
         this.chargement = false;
       },
+
       error: (err) => {
-        console.error('Erreur emploi du temps :', err);
-        if (err.status === 403) this.messageErreur = 'Accès refusé (compte non professeur).';
-        else if (err.status === 401) this.messageErreur = 'Session expirée, reconnectez-vous.';
-        else this.messageErreur = 'Impossible de charger votre emploi du temps.';
+        console.error('Erreur chargement profil professeur :', err);
+
+        this.messageErreur =
+          'Impossible de charger vos informations professionnelles.';
+
         this.chargement = false;
       }
+
     });
   }
 }

@@ -30,6 +30,10 @@ import { MenuEtudiantComponent } from './app/menu-etudiant/menu-etudiant.compone
 import { MenuProfesseurComponent } from './app/menu-professeur/menu-professeur.component';
 import { MesDisponibilitesComponent } from './professeur/mes-disponibilites/mes-disponibilites.component';
 import { MonEmploiComponent } from './etudiant/mon-emploi/mon-emploi.component';
+import { EmploiProfesseurComponent } from './professeur/emploi-professeur-component/emploi-professeur-component.component';
+import { MesPreferencesComponent } from './professeur/mes-preferences/mes-preferences.component';
+
+
 
 @NgModule({
   declarations: [
@@ -53,7 +57,9 @@ import { MonEmploiComponent } from './etudiant/mon-emploi/mon-emploi.component';
     MenuEtudiantComponent,
     MenuProfesseurComponent,
     MesDisponibilitesComponent,
-    MonEmploiComponent
+    MonEmploiComponent,
+    EmploiProfesseurComponent,
+    MesPreferencesComponent,
   ],
   imports: [
     BrowserModule,

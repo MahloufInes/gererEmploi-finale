@@ -78,13 +78,16 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
-
+                        .requestMatchers(HttpMethod.GET, "/api/professeurs/mon-profil")
+                        .hasRole("PROFESSEUR")
                         // CORS
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Authentication
                         .requestMatchers("/api/auth/**", "/error").permitAll()
-
+                        // Étudiants : consulter leur propre profil
+                        .requestMatchers(HttpMethod.GET, "/api/etudiants/mon-profil")
+                        .hasRole("ETUDIANT")
                         // Student registration
                         .requestMatchers(HttpMethod.POST, "/api/etudiants")
                         .permitAll()
@@ -97,7 +100,7 @@ public class SecurityConfig {
                         )
 
                         // Professors: personal timetable
-                        .requestMatchers(HttpMethod.GET, "/api/seances/mon-emploi")
+                        .requestMatchers(HttpMethod.GET, "/api/seances/mon-prof-emploi")
                         .hasRole("PROFESSEUR")
 
                         // Subject preferences

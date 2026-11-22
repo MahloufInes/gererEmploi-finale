@@ -6,7 +6,9 @@ import com.edt.dto.ProfesseurResponse;
 import com.edt.service.ProfesseurService;
 
 import jakarta.validation.Valid;
+
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -28,6 +30,15 @@ public class ProfesseurController {
         return professeurService.afficherTous();
     }
 
+    @GetMapping("/mon-profil")
+    public ProfesseurResponse afficherMonProfil(
+            Authentication authentication) {
+
+        String email = authentication.getName();
+
+        return professeurService.afficherMonProfil(email);
+    }
+
     // Afficher le nombre de professeurs
     @GetMapping("/count")
     public long compterProfesseurs() {
@@ -39,6 +50,7 @@ public class ProfesseurController {
     @ResponseStatus(HttpStatus.CREATED)
     public ProfesseurResponse ajouter(
             @Valid @RequestBody ProfesseurRequest request) {
+
         return professeurService.ajouter(request);
     }
 
@@ -47,6 +59,7 @@ public class ProfesseurController {
     public ProfesseurResponse modifier(
             @PathVariable Long id,
             @Valid @RequestBody ProfesseurRequest request) {
+
         return professeurService.modifier(id, request);
     }
 

@@ -45,6 +45,39 @@ public interface EnseignementRepository
     List<Enseignement> findByFiliereIdAndGenereAutomatiquementTrue(
             Long filiereId);
 
+    // Affectations automatiques d'un professeur.
+    // Elles permettent d'identifier les filières et semestres concernés.
+    @Query("""
+        SELECT DISTINCT e
+        FROM Enseignement e
+        JOIN FETCH e.professeur p
+        JOIN FETCH e.filiere f
+        JOIN FETCH e.groupe g
+        JOIN FETCH e.matiere m
+        WHERE p.id = :professeurId
+          AND e.genereAutomatiquement = true
+    """)
+    List<Enseignement> findAffectationsAutomatiquesByProfesseur(
+            @Param("professeurId") Long professeurId
+    );
+
+    // Récupérer les affectations existantes d'une filière et d'un semestre.
+    // Aucune nouvelle répartition des professeurs n'est effectuée.
+    @Query("""
+        SELECT DISTINCT e
+        FROM Enseignement e
+        JOIN FETCH e.professeur p
+        JOIN FETCH e.matiere m
+        JOIN FETCH e.groupe g
+        WHERE e.filiere.id = :filiereId
+          AND e.genereAutomatiquement = true
+          AND :semestre MEMBER OF g.semestres
+    """)
+    List<Enseignement> findAffectationsAutomatiquesByFiliereAndSemestre(
+            @Param("filiereId") Long filiereId,
+            @Param("semestre") String semestre
+    );
+
     @Modifying
     @Query("""
         DELETE FROM Enseignement e

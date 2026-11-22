@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -19,6 +20,7 @@ public class DisponibiliteController {
 
     private final DisponibiliteService disponibiliteService;
 
+    // Enregistrer les disponibilités
     @PostMapping("/professeur/{professeurId}")
     public ResponseEntity<Map<String, Object>> enregistrerDisponibilites(
             @PathVariable Long professeurId,
@@ -37,5 +39,17 @@ public class DisponibiliteController {
         );
 
         return ResponseEntity.ok(response);
+    }
+
+    // Récupérer les disponibilités du professeur
+    @GetMapping("/professeur/{professeurId}")
+    public ResponseEntity<List<Map<String, String>>> obtenirDisponibilites(
+            @PathVariable Long professeurId
+    ) {
+
+        List<Map<String, String>> disponibilites =
+                disponibiliteService.obtenirDisponibilites(professeurId);
+
+        return ResponseEntity.ok(disponibilites);
     }
 }

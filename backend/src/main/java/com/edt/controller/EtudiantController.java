@@ -8,6 +8,7 @@ import com.edt.service.EtudiantService;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
@@ -23,9 +24,17 @@ public class EtudiantController {
         this.etudiantService = etudiantService;
     }
 
+    // Consulter tous les étudiants (administrateurs)
     @GetMapping
     public List<EtudiantResponse> afficherTous() {
         return etudiantService.afficherTous();
+    }
+
+    // Consulter le profil de l'étudiant connecté
+    @GetMapping("/mon-profil")
+    public EtudiantResponse afficherMonProfil(Authentication authentication) {
+        String email = authentication.getName();
+        return etudiantService.afficherMonProfil(email);
     }
 
     @PostMapping
@@ -35,7 +44,7 @@ public class EtudiantController {
         return etudiantService.ajouter(request);
     }
 
-    // MODIFIER UN ETUDIANT
+    // Modifier un étudiant
     @PutMapping("/{id}")
     public EtudiantResponse modifier(
             @PathVariable Long id,
@@ -43,7 +52,7 @@ public class EtudiantController {
         return etudiantService.modifier(id, request);
     }
 
-    // SUPPRIMER UN ETUDIANT
+    // Supprimer un étudiant
     @DeleteMapping("/{id}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public void supprimer(@PathVariable Long id) {

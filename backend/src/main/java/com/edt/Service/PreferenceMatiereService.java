@@ -1,6 +1,7 @@
 
 package com.edt.service;
 
+import com.edt.dto.PreferenceMatiereResponse;
 import com.edt.entity.Matiere;
 import com.edt.entity.Professeur;
 import com.edt.entity.PreferenceMatiere;
@@ -51,14 +52,16 @@ public class PreferenceMatiereService {
     }
 
     // Get all subjects of a professor
+
     @Transactional(readOnly = true)
-    public List<PreferenceMatiere> getByProfesseur(Long professeurId) {
+    public List<PreferenceMatiereResponse> getByProfesseur(Long professeurId) {
 
         if (!professeurRepository.existsById(professeurId)) {
             throw new RuntimeException("Professeur introuvable");
         }
 
-        return preferenceRepository.findByProfesseurId(professeurId);
+        return preferenceRepository
+                .findPreferencesResponseByProfesseurId(professeurId);
     }
 
     // Get all professors associated with a subject

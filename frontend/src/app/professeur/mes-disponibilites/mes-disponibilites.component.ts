@@ -1,5 +1,5 @@
 
-import { Component } from '@angular/core';
+import { Component, OnInit } from '@angular/core';
 
 import { AuthService } from '../../services/auth.service';
 
@@ -35,11 +35,12 @@ interface UtilisateurConnecte {
   templateUrl: './mes-disponibilites.component.html',
   styleUrls: ['./mes-disponibilites.component.css']
 })
-export class MesDisponibilitesComponent {
+export class MesDisponibilitesComponent implements OnInit {
 
   messageSucces = '';
   messageErreur = '';
   enregistrementEnCours = false;
+  chargement = false;
 
   private horaires = [
     { debut: '08:30', fin: '10:00' },
@@ -63,6 +64,11 @@ export class MesDisponibilitesComponent {
     private disponibiliteService: DisponibiliteService,
     private authService: AuthService
   ) {}
+
+  // Charger les disponibilités dès l'ouverture de la page
+  ngOnInit(): void {
+    this.chargerDisponibilites();
+  }
 
   private creerJour(nom: string, icon: string): Jour {
     return {
@@ -91,6 +97,22 @@ export class MesDisponibilitesComponent {
     return jours.indexOf(jour) * 10 + index + 1;
   }
 
+  // Récupérer le professeur connecté
+  private obtenirUtilisateur(): UtilisateurConnecte | null {
+
+    const utilisateurJSON = localStorage.getItem('user');
+
+    if (!utilisateurJSON) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(utilisateurJSON) as UtilisateurConnecte;
+    } catch {
+      return null;
+    }
+  }
+
   // Nombre total de créneaux sélectionnés
   get nombreDisponibilites(): number {
     return this.jours.reduce(
@@ -102,25 +124,145 @@ export class MesDisponibilitesComponent {
 
   // Nombre de créneaux sélectionnés pour un jour
   getNombreSelectionne(jour: Jour): number {
-    return jour.creneaux.filter(
-      creneau => creneau.selected
-    ).length;
+    return jour.creneaux.filter(c => c.selected).length;
+  }
+
+  // Conversion du jour Java vers le jour français
+  private convertirJourFrancais(jour: string): string {
+
+    const correspondance: { [key: string]: string } = {
+      'LUNDI': 'Lundi',
+      'MARDI': 'Mardi',
+      'MERCREDI': 'Mercredi',
+      'JEUDI': 'Jeudi',
+      'VENDREDI': 'Vendredi',
+      'SAMEDI': 'Samedi'
+    };
+
+    return correspondance[jour.toUpperCase()] || jour;
+  }
+
+  // Charger les disponibilités depuis MySQL
+  chargerDisponibilites(): void {
+
+    this.messageErreur = '';
+    this.messageSucces = '';
+
+    const token = this.authService.getToken();
+    const utilisateur = this.obtenirUtilisateur();
+
+    if (!token) {
+      this.messageErreur =
+        'Votre session a expiré. Veuillez vous reconnecter.';
+      return;
+    }
+
+    if (
+      !utilisateur ||
+      !utilisateur.id ||
+      utilisateur.role !== 'PROFESSEUR'
+    ) {
+      this.messageErreur =
+        'Impossible de récupérer les informations du professeur.';
+      return;
+    }
+
+    this.chargement = true;
+
+    this.disponibiliteService
+      .getDisponibilites(utilisateur.id, token)
+      .subscribe({
+
+        next: (disponibilites: CreneauSelectionne[]) => {
+
+          // Tout décocher avant de restaurer les sélections
+          this.jours.forEach(jour => {
+            jour.creneaux.forEach(creneau => {
+              creneau.selected = false;
+            });
+          });
+
+          // Restaurer les créneaux enregistrés
+          disponibilites.forEach(disponibilite => {
+
+            const nomJour = this.convertirJourFrancais(
+              disponibilite.jour
+            );
+
+            const jour = this.jours.find(
+              j => j.nom === nomJour
+            );
+
+            if (!jour) {
+              return;
+            }
+
+            const heureDebut = disponibilite.heureDebut.substring(0, 5);
+            const heureFin = disponibilite.heureFin.substring(0, 5);
+
+            const creneau = jour.creneaux.find(
+              c =>
+                c.heureDebut === heureDebut &&
+                c.heureFin === heureFin
+            );
+
+            if (creneau) {
+              creneau.selected = true;
+            }
+          });
+
+          this.chargement = false;
+
+          console.log(
+            'Disponibilités récupérées :',
+            disponibilites
+          );
+        },
+
+        error: (error) => {
+
+          this.chargement = false;
+
+          console.error(
+            'Erreur lors du chargement des disponibilités :',
+            error
+          );
+
+          if (error.status === 0) {
+            this.messageErreur =
+              'Impossible de contacter le serveur.';
+          } else if (
+            error.status === 401 ||
+            error.status === 403
+          ) {
+            this.messageErreur =
+              'Accès refusé. Veuillez vous reconnecter.';
+          } else {
+            this.messageErreur =
+              error.error?.message ||
+              'Erreur lors du chargement des disponibilités.';
+          }
+        }
+      });
   }
 
   // Sélectionner ou désélectionner un créneau
   toggleCreneau(creneau: Creneau): void {
-    if (this.enregistrementEnCours) {
+
+    if (this.enregistrementEnCours || this.chargement) {
       return;
     }
 
     creneau.selected = !creneau.selected;
+
     this.messageSucces = '';
     this.messageErreur = '';
   }
 
   // Sélectionner toutes les séances d'un jour
   selectionnerTout(jour: Jour): void {
-    if (this.enregistrementEnCours) {
+
+    if (this.enregistrementEnCours || this.chargement) {
       return;
     }
 
@@ -138,7 +280,8 @@ export class MesDisponibilitesComponent {
 
   // Réinitialiser toutes les disponibilités
   reinitialiser(): void {
-    if (this.enregistrementEnCours) {
+
+    if (this.enregistrementEnCours || this.chargement) {
       return;
     }
 
@@ -154,6 +297,7 @@ export class MesDisponibilitesComponent {
 
   // Convertir le nom français en valeur de l'enum Java
   private convertirJour(jour: string): string {
+
     const correspondance: { [key: string]: string } = {
       'Lundi': 'LUNDI',
       'Mardi': 'MARDI',
@@ -172,14 +316,8 @@ export class MesDisponibilitesComponent {
     this.messageSucces = '';
     this.messageErreur = '';
 
-    if (this.nombreDisponibilites === 0) {
-      this.messageErreur =
-        'Veuillez sélectionner au moins un créneau.';
-      return;
-    }
-
-    // Récupérer le token JWT
     const token = this.authService.getToken();
+    const utilisateur = this.obtenirUtilisateur();
 
     if (!token) {
       this.messageErreur =
@@ -187,35 +325,17 @@ export class MesDisponibilitesComponent {
       return;
     }
 
-    // Récupérer les informations du professeur connecté
-    const utilisateurJSON = localStorage.getItem('user');
-
-    if (!utilisateurJSON) {
+    if (
+      !utilisateur ||
+      !utilisateur.id ||
+      utilisateur.role !== 'PROFESSEUR'
+    ) {
       this.messageErreur =
         'Impossible de récupérer les informations du professeur.';
       return;
     }
 
-    let utilisateur: UtilisateurConnecte;
-
-    try {
-      utilisateur = JSON.parse(utilisateurJSON);
-    } catch {
-      this.messageErreur =
-        'Les informations de votre session sont invalides.';
-      return;
-    }
-
-    if (
-      !utilisateur.id ||
-      utilisateur.role !== 'PROFESSEUR'
-    ) {
-      this.messageErreur =
-        'Seul un professeur connecté peut enregistrer ses disponibilités.';
-      return;
-    }
-
-    // Construire la liste des créneaux sélectionnés
+    // Construire la nouvelle liste des créneaux sélectionnés
     const creneauxSelectionnes: CreneauSelectionne[] = [];
 
     this.jours.forEach(jour => {
@@ -242,7 +362,6 @@ export class MesDisponibilitesComponent {
 
     this.enregistrementEnCours = true;
 
-    // Appel au backend Spring Boot
     this.disponibiliteService
       .enregistrerDisponibilites(
         utilisateur.id,
@@ -255,15 +374,8 @@ export class MesDisponibilitesComponent {
 
           this.enregistrementEnCours = false;
 
-          const nombreAjoute = response?.nombreAjoute ?? 0;
-
-          if (nombreAjoute > 0) {
-            this.messageSucces =
-              `${nombreAjoute} disponibilité(s) enregistrée(s) avec succès !`;
-          } else {
-            this.messageSucces =
-              'Vos disponibilités sélectionnées existent déjà dans la base de données.';
-          }
+          this.messageSucces =
+            `${response.nombreAjoute} disponibilité(s) enregistrée(s) avec succès !`;
 
         },
 
@@ -272,16 +384,19 @@ export class MesDisponibilitesComponent {
           this.enregistrementEnCours = false;
 
           console.error(
-            'Erreur lors de l’enregistrement des disponibilités :',
+            'Erreur lors de l’enregistrement :',
             error
           );
 
           if (error.status === 0) {
             this.messageErreur =
               'Impossible de contacter le serveur. Vérifiez que Spring Boot est démarré.';
-          } else if (error.status === 401 || error.status === 403) {
+          } else if (
+            error.status === 401 ||
+            error.status === 403
+          ) {
             this.messageErreur =
-              'Accès refusé. Votre session a expiré ou vous ne disposez pas des droits nécessaires.';
+              'Accès refusé. Veuillez vous reconnecter.';
           } else {
             this.messageErreur =
               error.error?.message ||
@@ -289,7 +404,6 @@ export class MesDisponibilitesComponent {
           }
 
         }
-
       });
   }
 }

@@ -1,6 +1,7 @@
 
 package com.edt.controller;
 
+import com.edt.dto.PreferenceMatiereResponse;
 import com.edt.entity.PreferenceMatiere;
 import com.edt.service.PreferenceMatiereService;
 
@@ -29,9 +30,8 @@ public class PreferenceMatiereController {
         );
     }
 
-    // Get all subjects associated with a professor
     @GetMapping("/professeur/{professeurId}")
-    public List<PreferenceMatiere> getByProfesseur(
+    public List<PreferenceMatiereResponse> getByProfesseur(
             @PathVariable Long professeurId) {
 
         return preferenceService.getByProfesseur(professeurId);

@@ -1,96 +1,128 @@
 
 <div class="shell">
+
   <app-menu-professeur></app-menu-professeur>
 
   <main class="content">
 
-    <!-- En-tête -->
-    <section class="hero">
-      <div>
-        <h1>Mon emploi du temps</h1>
-        <p>Consultez toutes vos séances programmées.</p>
-      </div>
-      <div class="hero-icon">📅</div>
-    </section>
-
-    <!-- Statistiques -->
-    <div class="stats">
-      <div class="stat-card">
-        <span class="stat-icon">📚</span>
-        <div>
-          <h3>{{ seances.length }}</h3>
-          <p>Total des séances</p>
-        </div>
-      </div>
-    </div>
-
     <!-- Chargement -->
     <div *ngIf="chargement" class="message">
-      Chargement de votre emploi du temps...
+      Chargement de votre espace professeur...
     </div>
 
     <!-- Erreur -->
-    <div *ngIf="messageErreur" class="message-erreur">
+    <div *ngIf="!chargement && messageErreur" class="message-erreur">
       {{ messageErreur }}
     </div>
 
-    <!-- Contenu -->
-    <div class="card" *ngIf="!chargement && !messageErreur">
+    <!-- Dashboard -->
+    <div *ngIf="!chargement && !messageErreur && professeur">
 
-      <div class="card-header">
-        <h2>Mes séances</h2>
-        <span>{{ seances.length }} séance(s)</span>
-      </div>
+      <!-- Bienvenue -->
+      <section class="hero">
+        <div>
+          <span class="sous-titre">ESPACE PROFESSEUR</span>
 
-      <!-- Aucune séance -->
-      <div *ngIf="seances.length === 0" class="empty-state">
-        <div class="empty-icon">📅</div>
-        <h3>Aucun cours programmé</h3>
+          <h1>
+            Bienvenue {{ professeur.prenom }} {{ professeur.nom }} 🎓
+          </h1>
+
+          <p>
+            Retrouvez ici toutes les informations concernant votre espace professionnel.
+          </p>
+        </div>
+
+        <div class="avatar">
+          {{ professeur.prenom ? professeur.prenom.charAt(0).toUpperCase() : '?' }}
+        </div>
+      </section>
+
+      <!-- Informations professionnelles -->
+      <h2 class="section-title">Mes informations professionnelles</h2>
+
+      <section class="info-grid">
+
+        <div class="info-card">
+          <div class="info-icon violet">👤</div>
+          <div>
+            <h3>Nom et prénom</h3>
+            <p>{{ professeur.prenom }} {{ professeur.nom }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <div class="info-icon blue">📚</div>
+          <div>
+            <h3>Ma spécialité</h3>
+            <p>{{ professeur.specialite || 'Non renseignée' }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <div class="info-icon orange">🏢</div>
+          <div>
+            <h3>Mon département</h3>
+            <p>{{ professeur.nomDepartement || 'Non renseigné' }}</p>
+          </div>
+        </div>
+
+        <div class="info-card">
+          <div class="info-icon green">✉️</div>
+          <div>
+            <h3>Mon adresse email</h3>
+            <p>{{ professeur.email }}</p>
+          </div>
+        </div>
+
+      </section>
+
+      <!-- Espace professionnel -->
+      <h2 class="section-title">Mon espace professionnel</h2>
+
+      <section class="quick-access">
+
+        <a routerLink="/emploi-professeur" class="access-card">
+          <div class="access-icon">📅</div>
+          <div>
+            <h3>Mon emploi du temps</h3>
+            <p>Consulter mes séances et mes horaires.</p>
+          </div>
+          <span>→</span>
+        </a>
+
+        <a routerLink="/mes-disponibilites" class="access-card">
+          <div class="access-icon">🕒</div>
+          <div>
+            <h3>Mes disponibilités</h3>
+            <p>Gérer mes créneaux disponibles.</p>
+          </div>
+          <span>→</span>
+        </a>
+
+        
+      
+
+      </section>
+
+      <!-- Résumé -->
+      <section class="card resume">
+        <h2>Mon parcours professionnel</h2>
+
         <p>
-          Votre emploi du temps sera affiché ici dès que
-          les séances seront programmées.
+          Bonjour <strong>{{ professeur.prenom }} {{ professeur.nom }}</strong>,
+          vous exercez dans la spécialité
+          <strong>{{ professeur.specialite || 'non renseignée' }}</strong>,
+          au département
+          <strong>{{ professeur.nomDepartement || 'non renseigné' }}</strong>.
         </p>
-      </div>
 
-      <!-- Tableau des séances -->
-      <div class="table-wrap" *ngIf="seances.length > 0">
-        <table>
-          <thead>
-            <tr>
-              <th>Date</th>
-              <th>Jour</th>
-              <th>Horaire</th>
-              <th>Matière</th>
-              <th>Professeur</th>
-              <th>Groupe</th>
-              <th>Salle</th>
-              <th>Type</th>
-              <th>Statut</th>
-            </tr>
-          </thead>
-
-          <tbody>
-            <tr *ngFor="let seance of seances">
-              <td>{{ seance.date || '-' }}</td>
-              <td>{{ seance.jour }}</td>
-              <td>
-                {{ seance.heureDebut }} - {{ seance.heureFin }}
-              </td>
-              <td>{{ seance.matiereNom }}</td>
-              <td>{{ seance.professeurNom }}</td>
-              <td>{{ seance.groupeNom }}</td>
-              <td>{{ seance.salleNom }}</td>
-              <td>
-                <span class="type-badge">{{ seance.type }}</span>
-              </td>
-              <td>
-                <span class="status-badge">{{ seance.statut }}</span>
-              </td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
+        <p>
+          Consultez régulièrement votre espace pour suivre votre emploi du temps
+          et gérer vos disponibilités.
+        </p>
+      </section>
 
     </div>
+
   </main>
 </div>

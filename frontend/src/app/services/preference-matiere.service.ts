@@ -1,19 +1,26 @@
 
 import { Injectable } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import {
+  HttpClient,
+  HttpParams,
+  HttpHeaders
+} from '@angular/common/http';
 import { Observable } from 'rxjs';
+import { AuthService } from './auth.service';
 
+// Nouvelle structure retournée par le DTO backend
 export interface PreferenceMatiere {
   id: number;
-  professeur: {
-    id: number;
-    nom: string;
-    prenom: string;
-  };
-  matiere: {
-    id: number;
-    nom: string;
-  };
+  professeurId: number;
+  matiereId: number;
+  matiereNom: string;
+}
+
+export interface Matiere {
+  id: number;
+  nom: string;
+  departementId: number | null;
+  departementNom: string | null;
 }
 
 @Injectable({
@@ -21,10 +28,43 @@ export interface PreferenceMatiere {
 })
 export class PreferenceMatiereService {
 
-  private apiUrl = 'http://localhost:8081/api/preferences-matieres';
+  private readonly apiUrl =
+    'http://localhost:8081/api/preferences-matieres';
 
-  constructor(private http: HttpClient) {}
+  private readonly matiereUrl =
+    'http://localhost:8081/api/matieres';
 
+  constructor(
+    private http: HttpClient,
+    private authService: AuthService
+  ) {}
+
+  /**
+   * Ajouter le token JWT dans les headers HTTP.
+   */
+  private getHeaders(): HttpHeaders {
+    const token = this.authService.getToken();
+
+    return new HttpHeaders({
+      Authorization: token?.startsWith('Bearer ')
+        ? token
+        : `Bearer ${token}`
+    });
+  }
+
+  /**
+   * Récupérer toutes les matières.
+   */
+  getMatieres(): Observable<Matiere[]> {
+    return this.http.get<Matiere[]>(
+      this.matiereUrl,
+      { headers: this.getHeaders() }
+    );
+  }
+
+  /**
+   * Ajouter une préférence pour un professeur.
+   */
   ajouterPreference(
     professeurId: number,
     matiereId: number
@@ -37,28 +77,42 @@ export class PreferenceMatiereService {
     return this.http.post<PreferenceMatiere>(
       this.apiUrl,
       null,
-      { params }
+      {
+        params,
+        headers: this.getHeaders()
+      }
     );
   }
 
+  /**
+   * Récupérer les préférences d'un professeur.
+   */
   getByProfesseur(
     professeurId: number
   ): Observable<PreferenceMatiere[]> {
 
     return this.http.get<PreferenceMatiere[]>(
-      `${this.apiUrl}/professeur/${professeurId}`
+      `${this.apiUrl}/professeur/${professeurId}`,
+      { headers: this.getHeaders() }
     );
   }
 
+  /**
+   * Récupérer les professeurs ayant choisi une matière.
+   */
   getByMatiere(
     matiereId: number
   ): Observable<PreferenceMatiere[]> {
 
     return this.http.get<PreferenceMatiere[]>(
-      `${this.apiUrl}/matiere/${matiereId}`
+      `${this.apiUrl}/matiere/${matiereId}`,
+      { headers: this.getHeaders() }
     );
   }
 
+  /**
+   * Supprimer une préférence.
+   */
   supprimerPreference(
     professeurId: number,
     matiereId: number
@@ -70,7 +124,10 @@ export class PreferenceMatiereService {
 
     return this.http.delete<void>(
       this.apiUrl,
-      { params }
+      {
+        params,
+        headers: this.getHeaders()
+      }
     );
   }
 }

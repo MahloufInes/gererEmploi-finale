@@ -27,21 +27,36 @@ export class DisponibiliteService {
 
   constructor(private http: HttpClient) {}
 
+  private getHeaders(token: string): HttpHeaders {
+    return new HttpHeaders({
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json'
+    });
+  }
+
+  // Enregistrer les disponibilités
   enregistrerDisponibilites(
     professeurId: number,
     request: DisponibiliteRequest,
     token: string
   ): Observable<DisponibiliteResponse> {
 
-    const headers = new HttpHeaders({
-      Authorization: `Bearer ${token}`,
-      'Content-Type': 'application/json'
-    });
-
     return this.http.post<DisponibiliteResponse>(
       `${this.apiUrl}/professeur/${professeurId}`,
       request,
-      { headers }
+      { headers: this.getHeaders(token) }
+    );
+  }
+
+  // Récupérer les disponibilités déjà enregistrées
+  getDisponibilites(
+    professeurId: number,
+    token: string
+  ): Observable<CreneauSelectionne[]> {
+
+    return this.http.get<CreneauSelectionne[]>(
+      `${this.apiUrl}/professeur/${professeurId}`,
+      { headers: this.getHeaders(token) }
     );
   }
 }

@@ -1,0 +1,116 @@
+
+<div class="shell">
+  <main class="content">
+
+    <!-- Bouton retour -->
+    <button class="btn-retour" routerLink="/dashboard-professeur">
+      ← Retour au dashboard
+    </button>
+
+    <!-- En-tête -->
+    <div class="hero">
+      <div>
+        <h1>Mon emploi du temps</h1>
+        <p>Consultez vos séances, vos matières et vos horaires.</p>
+      </div>
+      <div class="hero-icon">📅</div>
+    </div>
+
+    <!-- Chargement -->
+    <div class="message" *ngIf="chargement">
+      <span>⏳</span> Chargement de votre emploi du temps...
+    </div>
+
+    <!-- Erreur -->
+    <div class="message-erreur" *ngIf="messageErreur">
+      ⚠️ {{ messageErreur }}
+    </div>
+
+    <!-- Contenu -->
+    <div class="card" *ngIf="!chargement && !messageErreur">
+
+      <div class="card-header">
+        <div>
+          <h2>Mes séances</h2>
+          <p>Liste de vos séances programmées</p>
+        </div>
+
+        <span class="count-badge">
+          {{ seances.length }} séance(s)
+        </span>
+      </div>
+
+      <!-- Tableau des séances -->
+      <div class="table-wrap" *ngIf="seances.length > 0">
+        <table>
+          <thead>
+            <tr>
+              <th>Jour</th>
+              <th>Date</th>
+              <th>Horaire</th>
+              <th>Matière</th>
+              <th>Groupe</th>
+              <th>Salle</th>
+              <th>Type</th>
+              <th>Statut</th>
+            </tr>
+          </thead>
+
+          <tbody>
+            <tr *ngFor="let seance of seances">
+
+              <td>
+                <strong>{{ seance.jour }}</strong>
+              </td>
+
+              <td>{{ seance.date }}</td>
+
+              <td>
+                <span class="horaire">
+                  {{ seance.heureDebut }} - {{ seance.heureFin }}
+                </span>
+              </td>
+
+              <td>
+                <strong>{{ seance.matiereNom }}</strong>
+              </td>
+
+              <td>{{ seance.groupeNom }}</td>
+
+              <td>
+                <span class="salle-badge">
+                  {{ seance.salleNom || 'Non définie' }}
+                </span>
+              </td>
+
+              <td>
+                <span class="type-badge">
+                  {{ seance.type }}
+                </span>
+              </td>
+
+              <td>
+                <span
+                  class="status-badge"
+                  [class.planifiee]="seance.statut === 'PLANIFIEE'"
+                  [class.autre-statut]="seance.statut !== 'PLANIFIEE'">
+                  {{ seance.statut }}
+                </span>
+              </td>
+
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Aucune séance -->
+      <div class="empty-state" *ngIf="seances.length === 0">
+        <div class="empty-icon">📭</div>
+        <h3>Aucune séance trouvée</h3>
+        <p>Vous n'avez aucune séance programmée pour le moment.</p>
+      </div>
+
+    </div>
+
+  </main>
+</div>

@@ -121,6 +121,19 @@ public class ProfesseurService {
         professeurRepository.delete(professeur);
     }
 
+    @Transactional(readOnly = true)
+    public ProfesseurResponse afficherMonProfil(String email) {
+
+        Professeur professeur = professeurRepository.findByEmail(email)
+                .orElseThrow(() -> new ResponseStatusException(
+                        HttpStatus.NOT_FOUND,
+                        "Professeur introuvable"
+                ));
+
+        return convertirEnResponse(professeur);
+    }
+
+
     // Compter les professeurs
     @Transactional(readOnly = true)
     public long compterProfesseurs() {

@@ -23,6 +23,10 @@ import { DashboardEtudiantComponent } from './etudiant/dashboard-etudiant/dashbo
 import { ConsulterEmploisComponent } from './administrateur/consulter-emplois/consulter-emplois.component';
 import { MesDisponibilitesComponent } from './professeur/mes-disponibilites/mes-disponibilites.component';
 import { MonEmploiComponent } from './etudiant/mon-emploi/mon-emploi.component';
+import { EmploiProfesseurComponent } from './professeur/emploi-professeur-component/emploi-professeur-component.component';
+import { MesPreferencesComponent } from './professeur/mes-preferences/mes-preferences.component';
+
+
 
 const routes: Routes = [
 
@@ -44,6 +48,12 @@ const routes: Routes = [
   {
   path: 'mes-disponibilites',
   component: MesDisponibilitesComponent,
+  canActivate: [AuthGuard],
+  data: { roles: ['PROFESSEUR'] }
+},
+{
+  path: 'professeur/mon-emploi',
+  component: EmploiProfesseurComponent,
   canActivate: [AuthGuard],
   data: { roles: ['PROFESSEUR'] }
 },
@@ -115,16 +125,26 @@ const routes: Routes = [
     canActivate: [AuthGuard],
     data: { roles: ['PROFESSEUR'] }
   },
-
-   {
-    path: 'mon-emploi',
-    component: MonEmploiComponent,
-    canActivate: [AuthGuard],
-    data: { roles: ['ETUDIANT'] }
-  },
+   // ESPACE PROFESSEUR
   {
+    path: 'mes-preferences',
+    component: MesPreferencesComponent,
+    canActivate: [AuthGuard],
+    data: { roles: ['PROFESSEUR'] }
+  },
+
+// ESPACE ETUDIANT
+{
+  path: 'etudiant/mon-emploi',
+  component: MonEmploiComponent,
+  canActivate: [AuthGuard],
+  data: { roles: ['ETUDIANT'] }
+},
+{
   path: 'dashboard-etudiant',
-  component: DashboardEtudiantComponent
+  component: DashboardEtudiantComponent,
+  canActivate: [AuthGuard],
+  data: { roles: ['ETUDIANT'] }
 },
   { path: '**', redirectTo: '' }
 

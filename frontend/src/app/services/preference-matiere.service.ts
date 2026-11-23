@@ -29,10 +29,10 @@ export interface Matiere {
 export class PreferenceMatiereService {
 
   private readonly apiUrl =
-    'http://localhost:8081/api/preferences-matieres';
+    'https://gereremploi-finale-4h75.onrender.com/api/preferences-matieres';
 
   private readonly matiereUrl =
-    'http://localhost:8081/api/matieres';
+    'https://gereremploi-finale-4h75.onrender.com/api/matieres';
 
   constructor(
     private http: HttpClient,

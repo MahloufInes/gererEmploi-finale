@@ -13,17 +13,6 @@
 </head>
 <body>
   <app-root></app-root>
-  <script>
-  const pwd = document.getElementById('password');
-  document.getElementById('toggle').addEventListener('click', (e) => {
-    const show = pwd.type === 'password';
-    pwd.type = show ? 'text' : 'password';
-    e.currentTarget.setAttribute('aria-label', show ? 'Masquer le mot de passe' : 'Afficher le mot de passe');
-  });
-  document.getElementById('login-form').addEventListener('submit', (e) => {
-    e.preventDefault();
-    // TODO: send { email, password } to your authentication endpoint
-  });
-</script>
+  
 </body>
 </html>

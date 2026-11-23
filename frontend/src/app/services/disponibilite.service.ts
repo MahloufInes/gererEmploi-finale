@@ -23,7 +23,7 @@ export interface DisponibiliteResponse {
 })
 export class DisponibiliteService {
 
-  private apiUrl = 'http://localhost:8081/api/disponibilites';
+  private apiUrl = 'https://gereremploi-finale-4h75.onrender.com/api/disponibilites';
 
   constructor(private http: HttpClient) {}
 

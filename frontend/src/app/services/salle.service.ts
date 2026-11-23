@@ -23,7 +23,7 @@ export interface SalleRequest {
 })
 export class SalleService {
 
-  private apiUrl = 'http://localhost:8081/api/salles';
+  private apiUrl = 'https://gereremploi-finale-4h75.onrender.com/api/salles';
 
   constructor(private http: HttpClient) {}
 

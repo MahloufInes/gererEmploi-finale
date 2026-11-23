@@ -17,7 +17,7 @@ export interface LoginResponse {
 })
 export class AuthService {
 
-  private apiUrl = 'https://gereremploi-finale-4h75.onrender.com';
+  private apiUrl = 'https://gereremploi-finale-4h75.onrender.com/api/auth';
 
   constructor(private http: HttpClient) {}
 

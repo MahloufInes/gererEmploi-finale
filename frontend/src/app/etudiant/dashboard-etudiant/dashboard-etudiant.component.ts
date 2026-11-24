@@ -38,7 +38,7 @@ export class DashboardEtudiantComponent implements OnInit {
     });
 
     this.http.get<Etudiant>(
-      'http://localhost:8081/api/etudiants/mon-profil',
+      'https://edttt-backend-api.onrender.com/api/etudiants/mon-profil',
       { headers }
     ).subscribe({
       next: data => {

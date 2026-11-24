@@ -14,7 +14,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/groupes")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = {
+        "http://localhost:4200",
+        "https://gereremploi-finale-front.onrender.com"
+})
 public class GroupeController {
 
     private final GroupeService groupeService;

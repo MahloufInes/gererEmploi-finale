@@ -39,9 +39,9 @@ interface Horaire {
 })
 export class GenererEmploiComponent implements OnInit {
 
-  private apiFilieres = 'http://localhost:8081/api/filieres';
-  private apiGeneration = 'http://localhost:8081/api/generation/generer';
-  private apiSeances = 'http://localhost:8081/api/generation/emploi';
+  private apiFilieres = 'https://edttt-backend-api.onrender.com/api/filieres';
+  private apiGeneration = 'https://edttt-backend-api.onrender.com/api/generation/generer';
+  private apiSeances = 'https://edttt-backend-api.onrender.com/api/generation/emploi';
 
   filieres: Filiere[] = [];
   seances: Seance[] = [];

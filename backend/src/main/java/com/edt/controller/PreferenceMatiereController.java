@@ -13,7 +13,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/preferences-matieres")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = {
+        "http://localhost:4200",
+        "https://gereremploi-finale-front.onrender.com"
+})
 public class PreferenceMatiereController {
 
     private final PreferenceMatiereService preferenceService;

@@ -14,8 +14,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/preferences-groupes")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:4200")
-public class PreferenceGroupeController {
+@CrossOrigin(origins = {
+        "http://localhost:4200",
+        "https://gereremploi-finale-front.onrender.com"
+})public class PreferenceGroupeController {
 
     private final PreferenceGroupeService preferenceService;
 

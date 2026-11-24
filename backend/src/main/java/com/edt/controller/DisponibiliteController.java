@@ -15,7 +15,10 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/disponibilites")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = {
+        "http://localhost:4200",
+        "https://gereremploi-finale-front.onrender.com"
+})
 public class DisponibiliteController {
 
     private final DisponibiliteService disponibiliteService;

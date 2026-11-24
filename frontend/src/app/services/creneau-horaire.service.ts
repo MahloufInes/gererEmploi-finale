@@ -21,7 +21,7 @@ export interface CreneauHoraireRequest {
 })
 export class CreneauHoraireService {
 
-  private apiUrl = 'http://localhost:8081/api/creneaux-horaires';
+  private apiUrl = 'https://edttt-backend-api.onrender.com/api/creneaux-horaires';
 
   constructor(private http: HttpClient) {}
 

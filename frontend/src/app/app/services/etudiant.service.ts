@@ -8,7 +8,7 @@ import { Observable } from 'rxjs';
 })
 export class EtudiantService {
 
-  private apiUrl = 'http://localhost:8081/api/etudiants';
+  private apiUrl = 'https://edttt-backend-api.onrender.com/api/etudiants';
 
   constructor(private http: HttpClient) {}
 

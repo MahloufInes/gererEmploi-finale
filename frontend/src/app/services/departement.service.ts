@@ -14,7 +14,7 @@ export interface Departement {
 })
 export class DepartementService {
 
-  private apiUrl = 'http://localhost:8081/api/departements';
+  private apiUrl = 'https://edttt-backend-api.onrender.com/api/departements';
 
   constructor(private http: HttpClient) {}
 

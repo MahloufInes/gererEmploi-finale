@@ -12,7 +12,10 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/enseignements")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = {
+        "http://localhost:4200",
+        "https://gereremploi-finale-front.onrender.com"
+})
 public class EnseignementController {
 
     private final EnseignementService enseignementService;

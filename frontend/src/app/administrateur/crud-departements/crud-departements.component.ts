@@ -15,7 +15,7 @@ interface Departement {
 })
 export class CrudDepartementsComponent implements OnInit {
 
-  private api = 'http://localhost:8081/api/departements';
+  private api = 'https://edttt-backend-api.onrender.com/api/departements';
 
   departements: Departement[] = [];
 

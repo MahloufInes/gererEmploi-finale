@@ -65,10 +65,10 @@ export class ConsulterEmploisComponent implements OnInit {
   // URLS API
   // ========================
 
-  private apiDepartements = 'http://localhost:8081/api/departements';
-  private apiFilieres = 'http://localhost:8081/api/filieres';
-  private apiGroupes = 'http://localhost:8081/api/groupes';
-  private apiConsultation = 'http://localhost:8081/api/consultation';
+  private apiDepartements = 'https://edttt-backend-api.onrender.com/api/departements';
+  private apiFilieres = 'https://edttt-backend-api.onrender.com/api/filieres';
+  private apiGroupes = 'https://edttt-backend-api.onrender.com/api/groupes';
+  private apiConsultation = 'https://edttt-backend-api.onrender.com/api/consultation';
 
   // ========================
   // DONNEES

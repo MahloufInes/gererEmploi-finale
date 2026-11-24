@@ -45,7 +45,7 @@ export class DashboardProfesseurComponent implements OnInit {
     });
 
     this.http.get<Professeur>(
-      'http://localhost:8081/api/professeurs/mon-profil',
+      'https://edttt-backend-api.onrender.com/api/professeurs/mon-profil',
       { headers }
     ).subscribe({
 

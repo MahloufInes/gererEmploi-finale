@@ -15,7 +15,10 @@ import java.util.List;
 
 @RestController
 @RequestMapping("/api/professeurs")
-@CrossOrigin(origins = "http://localhost:4200")
+@CrossOrigin(origins = {
+        "http://localhost:4200",
+        "https://gereremploi-finale-front.onrender.com"
+})
 public class ProfesseurController {
 
     private final ProfesseurService professeurService;

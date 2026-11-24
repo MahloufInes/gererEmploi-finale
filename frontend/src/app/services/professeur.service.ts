@@ -32,7 +32,7 @@ export interface ProfesseurCreationResponse {
 })
 export class ProfesseurService {
 
-  private apiUrl = 'http://localhost:8081/api/professeurs';
+  private apiUrl = 'https://edttt-backend-api.onrender.com/api/professeurs';
 
   constructor(private http: HttpClient) {}
 

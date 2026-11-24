@@ -21,7 +21,7 @@ export interface SalleRequest {
 })
 export class SalleService {
 
-  private apiUrl = 'http://localhost:8081/api/salles';
+  private apiUrl = 'https://edttt-backend-api.onrender.com/api/salles';
 
   constructor(private http: HttpClient) {}
 

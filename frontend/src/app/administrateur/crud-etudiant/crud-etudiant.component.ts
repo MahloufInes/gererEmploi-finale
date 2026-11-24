@@ -29,8 +29,8 @@ interface Etudiant {
 })
 export class CrudEtudiantComponent implements OnInit {
 
-  private apiEtudiants = 'http://localhost:8081/api/etudiants';
-  private apiGroupes = 'http://localhost:8081/api/groupes';
+  private apiEtudiants = 'https://edttt-backend-api.onrender.com/api/etudiants';
+  private apiGroupes = 'https://edttt-backend-api.onrender.com/api/groupes';
 
   etudiants: Etudiant[] = [];
   groupes: Groupe[] = [];

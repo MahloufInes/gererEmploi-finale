@@ -14,10 +14,10 @@ export class DashboardComponent implements OnInit {
   nombreGroupes = 0;
   nombreEnseignants = 0;
 
-  private apiEtudiants = 'http://localhost:8081/api/etudiants';
-  private apiFilieres = 'http://localhost:8081/api/filieres';
-  private apiGroupes = 'http://localhost:8081/api/groupes';
-  private apiEnseignants = 'http://localhost:8081/api/professeurs/count';
+  private apiEtudiants = 'https://edttt-backend-api.onrender.com/api/etudiants';
+  private apiFilieres = 'https://edttt-backend-api.onrender.com/api/filieres';
+  private apiGroupes = 'https://edttt-backend-api.onrender.com/api/groupes';
+  private apiEnseignants = 'https://edttt-backend-api.onrender.com/api/professeurs/count';
 
   constructor(private http: HttpClient) {}
 

@@ -37,7 +37,7 @@ export class MatieresComponent implements OnInit {
 
   chargerDepartements(): void {
     // Adapt the URL if your departments endpoint is different
-    this.http.get<Departement[]>('http://localhost:8081/api/departements').subscribe({
+    this.http.get<Departement[]>('https://edttt-backend-api.onrender.com/api/departements').subscribe({
       next: d => (this.departements = d),
       error: () => (this.erreur = 'Impossible de charger les départements')
     });

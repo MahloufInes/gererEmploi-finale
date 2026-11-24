@@ -22,7 +22,7 @@ interface Seance {
 })
 export class MonEmploiComponent implements OnInit {
 
-  private readonly api = 'http://localhost:8081/api/consultation/mon-emploi';
+  private readonly api = 'https://edttt-backend-api.onrender.com/api/consultation/mon-emploi';
   private readonly ordreJours = ['LUNDI','MARDI','MERCREDI','JEUDI','VENDREDI','SAMEDI','DIMANCHE'];
 
   seances: Seance[] = [];

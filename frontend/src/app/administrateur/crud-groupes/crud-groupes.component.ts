@@ -23,8 +23,8 @@ interface Groupe {
 })
 export class CrudGroupesComponent implements OnInit {
 
-  private apiGroupes = 'http://localhost:8081/api/groupes';
-  private apiFilieres = 'http://localhost:8081/api/filieres';
+  private apiGroupes = 'https://edttt-backend-api.onrender.com/api/groupes';
+  private apiFilieres = 'https://edttt-backend-api.onrender.com/api/filieres';
 
   readonly semestresDisponibles = ['S1', 'S2', 'S3', 'S4', 'S5', 'S6'];
 

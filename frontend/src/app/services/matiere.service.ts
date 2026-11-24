@@ -17,7 +17,7 @@ export interface MatiereRequest {
 @Injectable({ providedIn: 'root' })
 export class MatiereService {
 
-  private api = 'http://localhost:8081/api/matieres';
+  private api = 'https://edttt-backend-api.onrender.com/api/matieres';
 
   constructor(private http: HttpClient) {}
 

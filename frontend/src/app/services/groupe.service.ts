@@ -17,7 +17,7 @@ export interface Groupe {
 })
 export class GroupeService {
 
-  private readonly api = 'http://localhost:8081/api/groupes';
+  private readonly api = 'https://edttt-backend-api.onrender.com/api/groupes';
 
   constructor(private http: HttpClient) {}
 

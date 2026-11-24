@@ -20,7 +20,7 @@ export interface PreferenceGroupe {
 export class PreferenceGroupeService {
 
   private readonly api =
-    'http://localhost:8081/api/preferences-groupes';
+    'https://edttt-backend-api.onrender.com/api/preferences-groupes';
 
   constructor(
     private http: HttpClient,

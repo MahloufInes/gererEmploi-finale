@@ -38,9 +38,9 @@ interface Matiere {
 })
 export class CrudFilieresComponent implements OnInit {
 
-  private apiFilieres = 'http://localhost:8081/api/filieres';
-  private apiDepartements = 'http://localhost:8081/api/departements';
-  private apiMatieres = 'http://localhost:8081/api/matieres';
+  private apiFilieres = 'https://edttt-backend-api.onrender.com/api/filieres';
+  private apiDepartements = 'https://edttt-backend-api.onrender.com/api/departements';
+  private apiMatieres = 'https://edttt-backend-api.onrender.com/api/matieres';
 
   filieres: Filiere[] = [];
   departements: Departement[] = [];

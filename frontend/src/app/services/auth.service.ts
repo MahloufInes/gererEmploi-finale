@@ -17,7 +17,7 @@ export interface LoginResponse {
 })
 export class AuthService {
 
-  private apiUrl = 'http://localhost:8081/api/auth';
+  private apiUrl = 'https://edttt-backend-api.onrender.com/api/auth';
 
   constructor(private http: HttpClient) {}
 

@@ -24,7 +24,7 @@ interface Seance {
 export class EmploiProfesseurComponent implements OnInit {
 
   private readonly api =
-    'http://localhost:8081/api/seances/mon-prof-emploi';
+    'https://edttt-backend-api.onrender.com/api/seances/mon-prof-emploi';
 
   private readonly ordreJours = [
     'LUNDI', 'MARDI', 'MERCREDI', 'JEUDI',

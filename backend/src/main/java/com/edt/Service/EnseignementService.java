@@ -9,6 +9,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
 import java.util.*;
 
 @Service
@@ -16,36 +17,151 @@ import java.util.*;
 @Transactional
 public class EnseignementService {
 
+    private static final long DUREE_CRENEAU_MINUTES = 90;
+
     private final EnseignementRepository enseignementRepository;
     private final ProfesseurRepository professeurRepository;
     private final MatiereRepository matiereRepository;
     private final FiliereRepository filiereRepository;
 
-    // Repositories for automatic allocation
     private final FiliereMatiereRepository filiereMatiereRepository;
     private final PreferenceMatiereRepository preferenceMatiereRepository;
     private final GroupeRepository groupeRepository;
 
+    private final DisponibiliteRepository disponibiliteRepository;
+
+    // =====================================================
     // ENTITY TO DTO
+    // =====================================================
+
     private EnseignementDTO convertirEnDTO(Enseignement e) {
 
         return EnseignementDTO.builder()
                 .id(e.getId())
-
                 .professeurId(e.getProfesseur().getId())
                 .professeurNom(e.getProfesseur().getNom())
                 .professeurPrenom(e.getProfesseur().getPrenom())
-
                 .matiereId(e.getMatiere().getId())
                 .matiereNom(e.getMatiere().getNom())
-
                 .filiereId(e.getFiliere().getId())
                 .filiereNom(e.getFiliere().getNom())
-
                 .heuresCours(e.getHeuresCours())
                 .heuresTP(e.getHeuresTP())
-
                 .build();
+    }
+
+    // =====================================================
+    // VÉRIFIER LES DISPONIBILITÉS
+    // =====================================================
+
+    private boolean possedeDisponibiliteCours(Long professeurId) {
+
+        List<Disponibilite> disponibilites =
+                disponibiliteRepository.findByProfesseurId(professeurId);
+
+        return disponibilites.stream().anyMatch(d -> {
+            CreneauHoraire c = d.getCreneau();
+
+            return c != null
+                    && Duration.between(
+                    c.getHeureDebut(),
+                    c.getHeureFin()
+            ).toMinutes() == DUREE_CRENEAU_MINUTES;
+        });
+    }
+
+    private boolean possedeDisponibiliteTP(Long professeurId) {
+
+        List<Disponibilite> disponibilites =
+                disponibiliteRepository.findByProfesseurId(professeurId);
+
+        List<CreneauHoraire> creneaux = disponibilites.stream()
+                .map(Disponibilite::getCreneau)
+                .filter(Objects::nonNull)
+                .sorted(
+                        Comparator.comparing(CreneauHoraire::getJour)
+                                .thenComparing(CreneauHoraire::getHeureDebut)
+                )
+                .toList();
+
+        for (int i = 0; i < creneaux.size(); i++) {
+
+            CreneauHoraire premier = creneaux.get(i);
+
+            if (Duration.between(
+                    premier.getHeureDebut(),
+                    premier.getHeureFin()
+            ).toMinutes() != DUREE_CRENEAU_MINUTES) {
+                continue;
+            }
+
+            for (int j = i + 1; j < creneaux.size(); j++) {
+
+                CreneauHoraire deuxieme = creneaux.get(j);
+
+                if (premier.getJour() != deuxieme.getJour()) {
+                    break;
+                }
+
+                if (premier.getHeureFin().plusMinutes(5)
+                        .equals(deuxieme.getHeureDebut())
+                        && Duration.between(
+                        deuxieme.getHeureDebut(),
+                        deuxieme.getHeureFin()
+                ).toMinutes() == DUREE_CRENEAU_MINUTES) {
+
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
+    // =====================================================
+    // VÉRIFIER SI LE PROFESSEUR PEUT ASSURER TOUTE LA MATIÈRE
+    // =====================================================
+
+    private boolean estDisponiblePourAffectation(
+            Professeur professeur,
+            float heuresCours,
+            float heuresTP
+    ) {
+
+        if (heuresCours > 0
+                && !possedeDisponibiliteCours(professeur.getId())) {
+            return false;
+        }
+
+        if (heuresTP > 0
+                && !possedeDisponibiliteTP(professeur.getId())) {
+            return false;
+        }
+
+        return true;
+    }
+
+    // =====================================================
+    // CALCUL DES UNITÉS
+    // =====================================================
+
+    private int calculerUnites(
+            float heures,
+            float dureeUnite,
+            String type
+    ) {
+
+        int nombre = Math.round(heures / dureeUnite);
+
+        if (Math.abs(heures - nombre * dureeUnite) > 0.001f) {
+            throw new RuntimeException(
+                    "Les heures de " + type
+                            + " doivent être un multiple de "
+                            + dureeUnite + " heures"
+            );
+        }
+
+        return nombre;
     }
 
     // =====================================================
@@ -54,14 +170,18 @@ public class EnseignementService {
 
     public List<Enseignement> genererAffectationsAutomatiques(
             Long filiereId,
-            String semestre) {
+            String semestre
+    ) {
 
         Filiere filiere = filiereRepository.findById(filiereId)
                 .orElseThrow(() ->
-                        new RuntimeException("Filiere introuvable"));
+                        new RuntimeException("Filière introuvable"));
 
         List<Groupe> groupes =
-                groupeRepository.findByFiliereIdAndSemestre(filiereId, semestre);
+                groupeRepository.findByFiliereIdAndSemestre(
+                        filiereId,
+                        semestre
+                );
 
         if (groupes.isEmpty()) {
             throw new RuntimeException(
@@ -71,7 +191,9 @@ public class EnseignementService {
 
         List<FiliereMatiere> matieres =
                 filiereMatiereRepository.findByFiliereIdAndSemestre(
-                        filiereId, semestre);
+                        filiereId,
+                        semestre
+                );
 
         if (matieres.isEmpty()) {
             throw new RuntimeException(
@@ -79,69 +201,61 @@ public class EnseignementService {
             );
         }
 
-        // Store the workload of every eligible professor.
-        Map<Long, Professeur> professeurs = new HashMap<>();
-        Map<Long, Float> charges = new HashMap<>();
+        // Trier les groupes et les matières pour garder
+        // une répartition stable entre les générations.
 
-        // Store the preferences for each subject.
+        List<Groupe> groupesTries = groupes.stream()
+                .sorted(Comparator.comparing(Groupe::getId))
+                .toList();
+
+        List<FiliereMatiere> matieresTriees = matieres.stream()
+                .sorted(Comparator.comparing(
+                        fm -> fm.getMatiere().getId()
+                ))
+                .toList();
+
+        // =================================================
+        // 1. RÉCUPÉRER LES PROFESSEURS PAR MATIÈRE
+        // =================================================
+
         Map<Long, List<Professeur>> professeursParMatiere =
                 new HashMap<>();
 
-        for (FiliereMatiere fm : matieres) {
+        for (FiliereMatiere fm : matieresTriees) {
 
             Long matiereId = fm.getMatiere().getId();
 
             List<PreferenceMatiere> preferences =
                     preferenceMatiereRepository.findByMatiereId(matiereId);
 
-            List<Professeur> candidats = new ArrayList<>();
+            Map<Long, Professeur> candidatsUniques =
+                    new LinkedHashMap<>();
 
             for (PreferenceMatiere preference : preferences) {
 
                 Professeur professeur = preference.getProfesseur();
 
-                if (professeur == null) {
+                if (professeur == null || professeur.getId() == null) {
                     continue;
                 }
 
-                candidats.add(professeur);
-
-                Long professeurId = professeur.getId();
-
-                if (!professeurs.containsKey(professeurId)) {
-
-                    professeurs.put(professeurId, professeur);
-
-                    float chargeActuelle = 0;
-
-                    List<Enseignement> anciens =
-                            enseignementRepository.findByProfesseur(professeur);
-
-                    for (Enseignement ancien : anciens) {
-
-                        // Ignore previous automatic assignments
-                        // of the filière being regenerated.
-                        if (ancien.isGenereAutomatiquement()
-                                && ancien.getFiliere().getId().equals(filiereId)
-                                && ancien.getGroupe() != null
-                                && ancien.getGroupe().getSemestres().contains(semestre)) {
-                            continue;
-                        }
-
-                        chargeActuelle += ancien.getHeuresCours() == null
-                                ? 0 : ancien.getHeuresCours();
-
-                        chargeActuelle += ancien.getHeuresTP() == null
-                                ? 0 : ancien.getHeuresTP();
-                    }
-
-                    charges.put(professeurId, chargeActuelle);
-                }
+                candidatsUniques.put(
+                        professeur.getId(),
+                        professeur
+                );
             }
 
+            List<Professeur> candidats =
+                    new ArrayList<>(candidatsUniques.values());
+
+            float heuresCours = fm.getHeuresCours() == null
+                    ? 0 : fm.getHeuresCours();
+
+            float heuresTP = fm.getHeuresTP() == null
+                    ? 0 : fm.getHeuresTP();
+
             if (candidats.isEmpty()
-                    && ((fm.getHeuresCours() != null && fm.getHeuresCours() > 0)
-                    || (fm.getHeuresTP() != null && fm.getHeuresTP() > 0))) {
+                    && (heuresCours > 0 || heuresTP > 0)) {
 
                 throw new RuntimeException(
                         "Aucun professeur n'a choisi la matière : "
@@ -152,12 +266,25 @@ public class EnseignementService {
             professeursParMatiere.put(matiereId, candidats);
         }
 
-        // Prepare all new assignments before replacing old ones.
-        List<Enseignement> nouvellesAffectations = new ArrayList<>();
+        // =================================================
+        // 2. SUIVRE LA CHARGE TOTALE DE CHAQUE PROFESSEUR
+        // =================================================
 
-        for (Groupe groupe : groupes) {
+        // La charge est conservée pendant toute la génération.
+        // Elle n'est pas remise à zéro pour chaque matière.
 
-            for (FiliereMatiere fm : matieres) {
+        Map<Long, Float> chargeProfesseurs = new HashMap<>();
+
+        // =================================================
+        // 3. PRÉPARER LES NOUVELLES AFFECTATIONS
+        // =================================================
+
+        List<Enseignement> nouvellesAffectations =
+                new ArrayList<>();
+
+        for (Groupe groupe : groupesTries) {
+
+            for (FiliereMatiere fm : matieresTriees) {
 
                 Matiere matiere = fm.getMatiere();
 
@@ -175,148 +302,156 @@ public class EnseignementService {
                     );
                 }
 
-                List<Professeur> candidats =
-                        professeursParMatiere.get(matiere.getId());
-
                 if (heuresCours == 0 && heuresTP == 0) {
                     continue;
                 }
 
+                // Vérifier les unités des heures.
+
+                if (heuresCours > 0) {
+                    calculerUnites(
+                            heuresCours,
+                            1.5f,
+                            "cours"
+                    );
+                }
+
+                if (heuresTP > 0) {
+                    calculerUnites(
+                            heuresTP,
+                            3f,
+                            "TP"
+                    );
+                }
+
+                List<Professeur> candidats =
+                        professeursParMatiere.get(matiere.getId());
+
                 if (candidats == null || candidats.isEmpty()) {
                     throw new RuntimeException(
-                            "Aucun professeur disponible pour "
+                            "Aucun professeur n'a choisi la matière : "
                                     + matiere.getNom()
                     );
                 }
 
-                // Professor -> [course hours, TP hours]
-                Map<Long, float[]> repartition = new LinkedHashMap<>();
+                // =================================================
+                // 4. GARDER UNIQUEMENT LES PROFESSEURS DISPONIBLES
+                // =================================================
 
-                // TP: all TP hours must belong to ONE professor.
-                if (heuresTP > 0) {
+                List<Professeur> disponibles = candidats.stream()
+                        .filter(p ->
+                                estDisponiblePourAffectation(
+                                        p,
+                                        heuresCours,
+                                        heuresTP
+                                )
+                        )
+                        .toList();
 
-                    Professeur professeurTP =
-                            choisirProfesseur(candidats, charges);
-
-                    float[] heures = repartition.computeIfAbsent(
-                            professeurTP.getId(),
-                            id -> new float[]{0, 0}
-                    );
-
-                    heures[1] = heuresTP;
-
-                    charges.put(
-                            professeurTP.getId(),
-                            charges.get(professeurTP.getId()) + heuresTP
+                if (disponibles.isEmpty()) {
+                    throw new RuntimeException(
+                            "Aucun professeur ayant choisi la matière "
+                                    + matiere.getNom()
+                                    + " ne possède les disponibilités "
+                                    + "nécessaires pour assurer les cours "
+                                    + "et les TP du groupe "
+                                    + groupe.getNom()
                     );
                 }
 
-                // Course: distribute in 1.5-hour units.
+                // =================================================
+                // 5. CHOISIR LE PROFESSEUR LE MOINS CHARGÉ
+                // =================================================
+
+                Professeur professeurChoisi = disponibles.stream()
+                        .min(
+                                Comparator.comparingDouble(
+                                        (Professeur p) ->
+                                                chargeProfesseurs.getOrDefault(
+                                                        p.getId(),
+                                                        0f
+                                                )
+                                ).thenComparing(Professeur::getId)
+                        )
+                        .orElseThrow(() ->
+                                new RuntimeException(
+                                        "Impossible de choisir un professeur"
+                                )
+                        );
+
+                // =================================================
+                // 6. CRÉER UNE SEULE AFFECTATION
+                // =================================================
+
+                // IMPORTANT :
+                // Le même professeur reçoit les heures de cours
+                // ET les heures de TP pour ce groupe et cette matière.
+
+                float heuresCoursAffectees = heuresCours;
+
                 if (heuresCours > 0) {
-
                     int nombreSeancesCours =
-                            calculerUnites(heuresCours, 1.5f, "cours");
+                            calculerUnites(
+                                    heuresCours,
+                                    1.5f,
+                                    "cours"
+                            );
 
-                    for (int i = 0; i < nombreSeancesCours; i++) {
-
-                        Professeur professeurCours =
-                                choisirProfesseur(candidats, charges);
-
-                        float[] heures = repartition.computeIfAbsent(
-                                professeurCours.getId(),
-                                id -> new float[]{0, 0}
-                        );
-
-                        heures[0] += 1.5f;
-
-                        charges.put(
-                                professeurCours.getId(),
-                                charges.get(professeurCours.getId()) + 1.5f
-                        );
-                    }
+                    heuresCoursAffectees =
+                            nombreSeancesCours * 1.5f;
                 }
 
-                // Create one assignment per professor and group.
-                for (Map.Entry<Long, float[]> entry : repartition.entrySet()) {
+                Enseignement enseignement = Enseignement.builder()
+                        .professeur(professeurChoisi)
+                        .matiere(matiere)
+                        .filiere(filiere)
+                        .groupe(groupe)
+                        .heuresCours(heuresCoursAffectees)
+                        .heuresTP(heuresTP)
+                        .genereAutomatiquement(true)
+                        .build();
 
-                    Professeur professeur =
-                            professeurs.get(entry.getKey());
+                nouvellesAffectations.add(enseignement);
 
-                    float[] heures = entry.getValue();
+                // =================================================
+                // 7. METTRE À JOUR LA CHARGE DU PROFESSEUR
+                // =================================================
 
-                    Enseignement enseignement = Enseignement.builder()
-                            .professeur(professeur)
-                            .matiere(matiere)
-                            .filiere(filiere)
-                            .groupe(groupe)
-                            .heuresCours(heures[0])
-                            .heuresTP(heures[1])
-                            .genereAutomatiquement(true)
-                            .build();
+                float totalHeures = heuresCoursAffectees + heuresTP;
 
-                    nouvellesAffectations.add(enseignement);
-                }
+                chargeProfesseurs.merge(
+                        professeurChoisi.getId(),
+                        totalHeures,
+                        Float::sum
+                );
             }
         }
 
-        // Replace only automatic assignments for this filière and semester.
+        // =================================================
+        // 8. REMPLACER LES ANCIENNES AFFECTATIONS AUTOMATIQUES
+        // =================================================
 
         enseignementRepository.deleteAutomaticAssignmentsByFiliereAndSemester(
                 filiereId,
                 semestre
         );
 
-        return enseignementRepository.saveAll(nouvellesAffectations);
-    }
-
-    // Choose the professor with the lowest current workload.
-    private Professeur choisirProfesseur(
-            List<Professeur> candidats,
-            Map<Long, Float> charges) {
-
-        return candidats.stream()
-                .min(
-                        Comparator
-                                .comparing(
-                                        (Professeur p) ->
-                                                charges.getOrDefault(p.getId(), 0f)
-                                )
-                                .thenComparing(Professeur::getId)
-                )
-                .orElseThrow(() ->
-                        new RuntimeException("Aucun professeur candidat"));
-    }
-
-    // Check that the hours can be scheduled in complete units.
-    private int calculerUnites(
-            float heures,
-            float dureeUnite,
-            String type) {
-
-        int nombre = Math.round(heures / dureeUnite);
-
-        if (Math.abs(heures - nombre * dureeUnite) > 0.001f) {
-            throw new RuntimeException(
-                    "Les heures de " + type
-                            + " doivent être un multiple de "
-                            + dureeUnite + " heures"
-            );
-        }
-
-        return nombre;
+        return enseignementRepository.saveAll(
+                nouvellesAffectations
+        );
     }
 
     // =====================================================
-    // EXISTING CRUD METHODS
+    // CRUD METHODS
     // =====================================================
 
-    // CREATE MANUAL ASSIGNMENT
     public EnseignementDTO ajouterEnseignement(
             Long professeurId,
             Long matiereId,
             Long filiereId,
             Float heuresCours,
-            Float heuresTP) {
+            Float heuresTP
+    ) {
 
         if (heuresCours == null || heuresTP == null
                 || heuresCours < 0 || heuresTP < 0) {
@@ -331,15 +466,17 @@ public class EnseignementService {
 
         Matiere matiere = matiereRepository.findById(matiereId)
                 .orElseThrow(() ->
-                        new RuntimeException("Matiere introuvable"));
+                        new RuntimeException("Matière introuvable"));
 
         Filiere filiere = filiereRepository.findById(filiereId)
                 .orElseThrow(() ->
-                        new RuntimeException("Filiere introuvable"));
+                        new RuntimeException("Filière introuvable"));
 
         boolean existe = enseignementRepository
                 .existsByProfesseurAndMatiereAndFiliere(
-                        professeur, matiere, filiere
+                        professeur,
+                        matiere,
+                        filiere
                 );
 
         if (existe) {
@@ -361,7 +498,6 @@ public class EnseignementService {
         return convertirEnDTO(saved);
     }
 
-    // GET ALL
     @Transactional(readOnly = true)
     public List<EnseignementDTO> getAllEnseignements() {
 
@@ -371,7 +507,6 @@ public class EnseignementService {
                 .toList();
     }
 
-    // GET BY ID
     @Transactional(readOnly = true)
     public EnseignementDTO getEnseignementById(Long id) {
 
@@ -382,7 +517,6 @@ public class EnseignementService {
         return convertirEnDTO(enseignement);
     }
 
-    // GET BY PROFESSOR
     @Transactional(readOnly = true)
     public List<EnseignementDTO> getByProfesseur(Long professeurId) {
 
@@ -396,13 +530,12 @@ public class EnseignementService {
                 .toList();
     }
 
-    // GET BY FILIERE
     @Transactional(readOnly = true)
     public List<EnseignementDTO> getByFiliere(Long filiereId) {
 
         Filiere filiere = filiereRepository.findById(filiereId)
                 .orElseThrow(() ->
-                        new RuntimeException("Filiere introuvable"));
+                        new RuntimeException("Filière introuvable"));
 
         return enseignementRepository.findByFiliere(filiere)
                 .stream()
@@ -410,19 +543,19 @@ public class EnseignementService {
                 .toList();
     }
 
-    // GET BY SUBJECT AND FILIERE
     @Transactional(readOnly = true)
     public List<EnseignementDTO> getByMatiereAndFiliere(
             Long matiereId,
-            Long filiereId) {
+            Long filiereId
+    ) {
 
         Matiere matiere = matiereRepository.findById(matiereId)
                 .orElseThrow(() ->
-                        new RuntimeException("Matiere introuvable"));
+                        new RuntimeException("Matière introuvable"));
 
         Filiere filiere = filiereRepository.findById(filiereId)
                 .orElseThrow(() ->
-                        new RuntimeException("Filiere introuvable"));
+                        new RuntimeException("Filière introuvable"));
 
         return enseignementRepository
                 .findByMatiereAndFiliere(matiere, filiere)
@@ -431,11 +564,11 @@ public class EnseignementService {
                 .toList();
     }
 
-    // UPDATE HOURS
     public EnseignementDTO modifierHeures(
             Long id,
             Float heuresCours,
-            Float heuresTP) {
+            Float heuresTP
+    ) {
 
         if (heuresCours == null || heuresTP == null
                 || heuresCours < 0 || heuresTP < 0) {
@@ -456,7 +589,6 @@ public class EnseignementService {
         return convertirEnDTO(updated);
     }
 
-    // DELETE
     public void supprimerEnseignement(Long id) {
 
         Enseignement enseignement = enseignementRepository.findById(id)

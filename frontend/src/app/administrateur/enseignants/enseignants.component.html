@@ -265,12 +265,12 @@
             *ngFor="let pref of preferences"
             class="preference-item">
 
-            <span>{{ pref.matiere.nom }}</span>
+            <span>{{ pref.matiereNom }}</span>
 
             <button
               type="button"
               class="btn-delete-preference"
-              (click)="supprimerPreference(pref.matiere.id)">
+              (click)="supprimerPreference(pref.matiereId)">
               Supprimer
             </button>
 
@@ -309,7 +309,8 @@
               <th>Email</th>
               <th>Spécialité</th>
               <th>Département</th>
-              <th>Préférences</th>
+              <th>Gérer les préférences</th>
+              <th>Matières préférées</th>
             </tr>
           </thead>
 
@@ -324,22 +325,19 @@
               <td>{{ p.specialite }}</td>
               <td>{{ p.nomDepartement || '-' }}</td>
 
-              <td>
-                <button
-                  type="button"
-                  class="btn-preferences"
-                  (click)="ouvrirPreferences(p)">
-                  Gérer les matières
-                </button>
-              </td>
+            <td>
+  <button
+    type="button"
+    class="btn-preferences"
+    (click)="ouvrirPreferences(p)">
+    Gérer les matières
+  </button>
+</td>
 
-            </tr>
-
-            <tr *ngIf="professeurs.length === 0">
-              <td colspan="7">
-                Aucun professeur enregistré.
-              </td>
-            </tr>
+<td class="matieres-preferees">
+  {{ matieresPreferees(p.id) }}
+</td>
+</tr>
 
           </tbody>
 

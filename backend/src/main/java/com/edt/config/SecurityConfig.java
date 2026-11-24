@@ -7,12 +7,12 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.HttpStatus;
-import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
@@ -25,8 +25,7 @@ public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
 
-    public SecurityConfig(
-            JwtAuthenticationFilter jwtAuthenticationFilter) {
+    public SecurityConfig(JwtAuthenticationFilter jwtAuthenticationFilter) {
         this.jwtAuthenticationFilter = jwtAuthenticationFilter;
     }
 
@@ -78,32 +77,47 @@ public class SecurityConfig {
                 )
 
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers(HttpMethod.GET, "/api/professeurs/mon-profil")
-                        .hasRole("PROFESSEUR")
+
                         // CORS
                         .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
 
                         // Authentication
                         .requestMatchers("/api/auth/**", "/error").permitAll()
-                        // Étudiants : consulter leur propre profil
-                        .requestMatchers(HttpMethod.GET, "/api/etudiants/mon-profil")
-                        .hasRole("ETUDIANT")
-                        // Student registration
-                        .requestMatchers(HttpMethod.POST, "/api/etudiants")
-                        .permitAll()
 
-                        // Administrators: view all students
-                        .requestMatchers(HttpMethod.GET, "/api/etudiants")
-                        .hasAnyRole(
+                        // Professeurs : consulter leur profil
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/professeurs/mon-profil"
+                        ).hasRole("PROFESSEUR")
+
+                        // Étudiants : consulter leur profil
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/etudiants/mon-profil"
+                        ).hasRole("ETUDIANT")
+
+                        // Inscription étudiant
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/etudiants"
+                        ).permitAll()
+
+                        // Administrateurs : consulter les étudiants
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/etudiants"
+                        ).hasAnyRole(
                                 "ADMINISTRATEUR",
                                 "SOUS_ADMINISTRATEUR"
                         )
 
-                        // Professors: personal timetable
-                        .requestMatchers(HttpMethod.GET, "/api/seances/mon-prof-emploi")
-                        .hasRole("PROFESSEUR")
+                        // Professeurs : consulter leur emploi du temps
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/seances/mon-prof-emploi"
+                        ).hasRole("PROFESSEUR")
 
-                        // Subject preferences
+                        // Préférences des matières
                         .requestMatchers("/api/preferences-matieres/**")
                         .hasAnyRole(
                                 "ADMINISTRATEUR",
@@ -111,59 +125,84 @@ public class SecurityConfig {
                                 "PROFESSEUR"
                         )
 
-                        // Professors: save availability
+                        // Préférences des groupes : professeur
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/preferences-groupes"
+                        ).hasRole("PROFESSEUR")
+
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/preferences-groupes"
+                        ).hasRole("PROFESSEUR")
+
+                        .requestMatchers(
+                                HttpMethod.GET,
+                                "/api/preferences-groupes/**"
+                        ).hasAnyRole(
+                                "PROFESSEUR",
+                                "ADMINISTRATEUR",
+                                "SOUS_ADMINISTRATEUR"
+                        )
+
+                        // Professeurs : enregistrer leurs disponibilités
                         .requestMatchers(
                                 HttpMethod.POST,
                                 "/api/disponibilites/professeur/**"
-                        )
-                        .hasRole("PROFESSEUR")
+                        ).hasRole("PROFESSEUR")
 
-                        // Students: consult their own timetable
+                        // Étudiants : consulter leur emploi du temps
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/consultation/mon-emploi/**"
-                        )
-                        .hasRole("ETUDIANT")
+                        ).hasRole("ETUDIANT")
 
-                        // Administrators: old consultation by group
+                        // Administrateurs : consulter les emplois par groupe
                         .requestMatchers(
                                 HttpMethod.GET,
                                 "/api/consultation/groupe/**"
-                        )
-                        .hasAnyRole(
+                        ).hasAnyRole(
                                 "ADMINISTRATEUR",
                                 "SOUS_ADMINISTRATEUR"
                         )
 
-                        // Administrators: other POST requests
-                        .requestMatchers(HttpMethod.POST, "/api/**")
-                        .hasAnyRole(
+                        // Administrateurs : autres requêtes POST
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/**"
+                        ).hasAnyRole(
                                 "ADMINISTRATEUR",
                                 "SOUS_ADMINISTRATEUR"
                         )
 
-                        // Administrators: PUT
-                        .requestMatchers(HttpMethod.PUT, "/api/**")
-                        .hasAnyRole(
+                        // Administrateurs : requêtes PUT
+                        .requestMatchers(
+                                HttpMethod.PUT,
+                                "/api/**"
+                        ).hasAnyRole(
                                 "ADMINISTRATEUR",
                                 "SOUS_ADMINISTRATEUR"
                         )
 
-                        // Administrators: PATCH
-                        .requestMatchers(HttpMethod.PATCH, "/api/**")
-                        .hasAnyRole(
+                        // Administrateurs : requêtes PATCH
+                        .requestMatchers(
+                                HttpMethod.PATCH,
+                                "/api/**"
+                        ).hasAnyRole(
                                 "ADMINISTRATEUR",
                                 "SOUS_ADMINISTRATEUR"
                         )
 
-                        // Administrators: DELETE
-                        .requestMatchers(HttpMethod.DELETE, "/api/**")
-                        .hasAnyRole(
+                        // Administrateurs : requêtes DELETE
+                        .requestMatchers(
+                                HttpMethod.DELETE,
+                                "/api/**"
+                        ).hasAnyRole(
                                 "ADMINISTRATEUR",
                                 "SOUS_ADMINISTRATEUR"
                         )
 
-                        // Other endpoints
+                        // Autres endpoints
                         .anyRequest().authenticated()
                 )
 

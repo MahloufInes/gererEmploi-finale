@@ -1,15 +1,15 @@
 
 package com.edt.service;
 
-import java.util.HashSet;
-import java.util.Set;
-import java.util.List;
-import java.util.ArrayList;
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.Comparator;
-import java.util.LinkedHashMap;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 import com.edt.dto.SeanceResponse;
 import com.edt.entity.*;
@@ -17,15 +17,15 @@ import com.edt.entity.enums.StatutSeance;
 import com.edt.entity.enums.TypeSalle;
 import com.edt.entity.enums.TypeSeance;
 
-import com.edt.repository.EnseignementRepository;
-import com.edt.repository.GroupeRepository;
-import com.edt.repository.SalleRepository;
+import com.edt.repository.AdministrateurRepository;
 import com.edt.repository.CreneauHoraireRepository;
 import com.edt.repository.DisponibiliteRepository;
 import com.edt.repository.EmploiDuTempsRepository;
-import com.edt.repository.SeanceRepository;
+import com.edt.repository.EnseignementRepository;
 import com.edt.repository.FiliereRepository;
-import com.edt.repository.AdministrateurRepository;
+import com.edt.repository.GroupeRepository;
+import com.edt.repository.SalleRepository;
+import com.edt.repository.SeanceRepository;
 
 import lombok.RequiredArgsConstructor;
 
@@ -36,6 +36,11 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 @Transactional
 public class GenerationEmploiDuTempsService {
+
+    private static final long DUREE_CRENEAU_MINUTES = 90;
+
+    // Limite de la recherche pour éviter une exécution infinie.
+    private static final int MAX_NOEUDS_RECHERCHE = 200_000;
 
     private final EnseignementService enseignementService;
 
@@ -49,16 +54,15 @@ public class GenerationEmploiDuTempsService {
     private final FiliereRepository filiereRepository;
     private final AdministrateurRepository administrateurRepository;
 
-
     // =========================================================
     // 1. CLASSES INTERNES
     // =========================================================
 
     private static class SeanceAPlacer {
 
-        private Enseignement enseignement;
-        private Groupe groupe;
-        private TypeSeance type;
+        private final Enseignement enseignement;
+        private final Groupe groupe;
+        private final TypeSeance type;
 
         public SeanceAPlacer(
                 Enseignement enseignement,
@@ -71,6 +75,23 @@ public class GenerationEmploiDuTempsService {
         }
     }
 
+    /** Un choix possible : créneau(x) + salle pour une séance. */
+    private static class Affectation {
+
+        private final SeanceAPlacer seance;
+        private final List<CreneauHoraire> creneaux;
+        private final Salle salle;
+
+        private Affectation(
+                SeanceAPlacer seance,
+                List<CreneauHoraire> creneaux,
+                Salle salle
+        ) {
+            this.seance = seance;
+            this.creneaux = creneaux;
+            this.salle = salle;
+        }
+    }
 
     private static class OccupationPlanning {
 
@@ -78,172 +99,101 @@ public class GenerationEmploiDuTempsService {
         private final Set<String> groupes = new HashSet<>();
         private final Set<String> salles = new HashSet<>();
 
-        // Total des créneaux de 90 minutes occupés par groupe et par jour
+        // Créneaux de 90 min occupés par groupe et par jour.
         private final Map<String, Integer> chargeGroupeParJour = new HashMap<>();
 
-        // Nombre de blocs TP par groupe et par jour
-        private final Map<String, Integer> tpParGroupeParJour = new HashMap<>();
+        // Compteurs pour pouvoir annuler un choix pendant la recherche.
+        private final Map<String, Integer> coursParJour = new HashMap<>();
+        private final Map<String, Integer> tpParJour = new HashMap<>();
 
-        // Matières déjà programmées par groupe et par jour
-        private final Set<String> matieresTPParJour = new HashSet<>();
-        private final Set<String> matieresCoursParJour = new HashSet<>();
+        // Caches.
+        private final Map<Long, Set<Long>> disponibilitesProf = new HashMap<>();
+        private final Map<String, List<Salle>> sallesCompatibles = new HashMap<>();
+        private final Map<Long, List<List<CreneauHoraire>>> pairesProf = new HashMap<>();
+        private final Map<Long, List<List<CreneauHoraire>>> coursProf = new HashMap<>();
     }
 
+    /** Résultat partagé pendant la recherche. */
+    private static class Recherche {
+        private int noeuds = 0;
+        private int profondeurMax = -1;
+        private String diagnostic = "aucune solution trouvée";
+        private boolean limiteAtteinte = false;
+    }
 
     // =========================================================
-    // 2. GESTION DES CLÉS ET DES STATISTIQUES
+    // 2. CLÉS ET STATISTIQUES
     // =========================================================
 
-    private String cleGroupeJour(
-            Long groupeId,
-            CreneauHoraire creneau
-    ) {
+    private String cleGroupeJour(Long groupeId, CreneauHoraire creneau) {
         return groupeId + "-" + creneau.getJour().name();
     }
-
 
     private String cleMatiereJour(
             Long groupeId,
             Long matiereId,
             CreneauHoraire creneau
     ) {
-        return groupeId + "-"
-                + matiereId + "-"
-                + creneau.getJour().name();
+        return groupeId + "-" + matiereId + "-" + creneau.getJour().name();
     }
-
 
     private int getChargeJour(
             OccupationPlanning occupation,
             Long groupeId,
             CreneauHoraire creneau
     ) {
-        String key = cleGroupeJour(groupeId, creneau);
-
-        return occupation.chargeGroupeParJour.getOrDefault(key, 0);
+        return occupation.chargeGroupeParJour
+                .getOrDefault(cleGroupeJour(groupeId, creneau), 0);
     }
 
+    private void ajuster(Map<String, Integer> map, String cle, int delta) {
+        int valeur = map.getOrDefault(cle, 0) + delta;
 
-    private int getNombreTPJour(
-            OccupationPlanning occupation,
-            Long groupeId,
-            CreneauHoraire creneau
-    ) {
-        String key = cleGroupeJour(groupeId, creneau);
-
-        return occupation.tpParGroupeParJour.getOrDefault(key, 0);
+        if (valeur <= 0) {
+            map.remove(cle);
+        } else {
+            map.put(cle, valeur);
+        }
     }
-
-
-    private void enregistrerCours(
-            OccupationPlanning occupation,
-            Long groupeId,
-            Long matiereId,
-            CreneauHoraire creneau
-    ) {
-        String jourKey = cleGroupeJour(groupeId, creneau);
-        String matiereKey = cleMatiereJour(
-                groupeId,
-                matiereId,
-                creneau
-        );
-
-        occupation.chargeGroupeParJour.merge(
-                jourKey,
-                1,
-                Integer::sum
-        );
-
-        occupation.matieresCoursParJour.add(matiereKey);
-    }
-
-
-    private void enregistrerTP(
-            OccupationPlanning occupation,
-            Long groupeId,
-            Long matiereId,
-            CreneauHoraire premier,
-            CreneauHoraire deuxieme
-    ) {
-        String jourKey = cleGroupeJour(groupeId, premier);
-
-        String matiereKey = cleMatiereJour(
-                groupeId,
-                matiereId,
-                premier
-        );
-
-        // Un TP occupe deux créneaux de 90 minutes
-        occupation.chargeGroupeParJour.merge(
-                jourKey,
-                2,
-                Integer::sum
-        );
-
-        // Un seul bloc TP est comptabilisé
-        occupation.tpParGroupeParJour.merge(
-                jourKey,
-                1,
-                Integer::sum
-        );
-
-        occupation.matieresTPParJour.add(matiereKey);
-    }
-
 
     // =========================================================
     // 3. VALIDATION DES DONNÉES
     // =========================================================
 
-    private void verifierDonneesGeneration(
-            Long filiereId,
-            String semestre
-    ) {
+    private void verifierDonneesGeneration(Long filiereId, String semestre) {
 
         var filiere = filiereRepository.findById(filiereId)
-                .orElseThrow(() ->
-                        new RuntimeException("Filière introuvable")
-                );
+                .orElseThrow(() -> new RuntimeException("Filière introuvable"));
 
-        var groupes = groupeRepository.findByFiliereIdAndSemestre(
-                filiere.getId(),
-                semestre
-        );
-
-        if (groupes.isEmpty()) {
+        if (groupeRepository
+                .findByFiliereIdAndSemestre(filiere.getId(), semestre)
+                .isEmpty()) {
             throw new RuntimeException(
-                    "Aucun groupe trouvé pour cette filière et ce semestre"
-            );
+                    "Aucun groupe trouvé pour cette filière et ce semestre");
         }
 
-        var creneaux = creneauHoraireRepository.findAll();
-
-        if (creneaux.isEmpty()) {
-            throw new RuntimeException(
-                    "Aucun créneau horaire enregistré"
-            );
+        if (creneauHoraireRepository.count() == 0) {
+            throw new RuntimeException("Aucun créneau horaire enregistré");
         }
 
-        var salles = salleRepository.findAll();
-
-        if (salles.isEmpty()) {
-            throw new RuntimeException(
-                    "Aucune salle enregistrée"
-            );
+        if (salleRepository.count() == 0) {
+            throw new RuntimeException("Aucune salle enregistrée");
         }
     }
 
-
+    /** Un nombre d'heures null vaut 0 séance. */
     private int calculerNombreSeances(
             Float heures,
             float dureeSeance,
             String typeSeance
     ) {
+        if (heures == null) {
+            return 0;
+        }
 
-        if (heures == null || heures < 0) {
+        if (heures < 0) {
             throw new RuntimeException(
-                    "Nombre d'heures invalide pour " + typeSeance
-            );
+                    "Nombre d'heures invalide pour " + typeSeance);
         }
 
         int nombre = Math.round(heures / dureeSeance);
@@ -251,73 +201,41 @@ public class GenerationEmploiDuTempsService {
         if (Math.abs(heures - (nombre * dureeSeance)) > 0.001f) {
             throw new RuntimeException(
                     "Les heures de " + typeSeance
-                            + " doivent être un multiple de "
-                            + dureeSeance
-            );
+                            + " doivent être un multiple de " + dureeSeance);
         }
 
         return nombre;
     }
 
-
     // =========================================================
     // 4. PRÉPARATION DES SÉANCES
     // =========================================================
 
-    /**
-     * Utilisée uniquement lors de la génération initiale.
-     * Génère les affectations automatiques.
-     */
-    private List<SeanceAPlacer> preparerSeances(
-            Long filiereId,
-            String semestre
-    ) {
-
-        List<Enseignement> enseignements =
+    private List<SeanceAPlacer> preparerSeances(Long filiereId, String semestre) {
+        return construireSeances(
                 enseignementService.genererAffectationsAutomatiques(
-                        filiereId,
-                        semestre
-                );
-
-        return construireSeances(enseignements);
+                        filiereId, semestre));
     }
 
-
-    /**
-     * Utilisée lors de la modification des disponibilités.
-     * Récupère les affectations automatiques existantes.
-     * Ne modifie aucune affectation professeur/matière/groupe.
-     */
     private List<SeanceAPlacer> preparerSeancesExistantes(
             Long filiereId,
             String semestre
     ) {
-
-        List<Enseignement> enseignements =
+        return construireSeances(
                 enseignementRepository
                         .findAffectationsAutomatiquesByFiliereAndSemestre(
-                                filiereId,
-                                semestre
-                        );
-
-        return construireSeances(enseignements);
+                                filiereId, semestre));
     }
 
-
-    /**
-     * Transforme les affectations en séances à placer.
-     */
     private List<SeanceAPlacer> construireSeances(
             List<Enseignement> enseignements
     ) {
-
-        List<SeanceAPlacer> seances = new ArrayList<>();
-
         if (enseignements == null || enseignements.isEmpty()) {
             throw new RuntimeException(
-                    "Aucune affectation automatique trouvée pour cette filière et ce semestre."
-            );
+                    "Aucune affectation automatique trouvée pour cette filière et ce semestre.");
         }
+
+        List<SeanceAPlacer> seances = new ArrayList<>();
 
         for (Enseignement enseignement : enseignements) {
 
@@ -326,123 +244,107 @@ public class GenerationEmploiDuTempsService {
             if (groupe == null) {
                 throw new RuntimeException(
                         "Aucun groupe associé à l'affectation "
-                                + enseignement.getId()
-                );
+                                + enseignement.getId());
+            }
+
+            if (enseignement.getProfesseur() == null) {
+                throw new RuntimeException(
+                        "Aucun professeur associé à l'affectation "
+                                + enseignement.getId());
             }
 
             int nombreCours = calculerNombreSeances(
-                    enseignement.getHeuresCours(),
-                    1.5f,
-                    "COURS"
-            );
+                    enseignement.getHeuresCours(), 1.5f, "COURS");
 
             int nombreTP = calculerNombreSeances(
-                    enseignement.getHeuresTP(),
-                    3f,
-                    "TP"
-            );
+                    enseignement.getHeuresTP(), 3f, "TP");
 
             for (int i = 0; i < nombreCours; i++) {
-
-                seances.add(
-                        new SeanceAPlacer(
-                                enseignement,
-                                groupe,
-                                TypeSeance.COURS
-                        )
-                );
+                seances.add(new SeanceAPlacer(enseignement, groupe, TypeSeance.COURS));
             }
 
             for (int i = 0; i < nombreTP; i++) {
-
-                seances.add(
-                        new SeanceAPlacer(
-                                enseignement,
-                                groupe,
-                                TypeSeance.TP
-                        )
-                );
+                seances.add(new SeanceAPlacer(enseignement, groupe, TypeSeance.TP));
             }
         }
 
         return seances;
     }
 
-
     // =========================================================
-    // 5. RECHERCHE DES CRÉNEAUX TP
+    // 5. DISPONIBILITÉS, CRÉNEAUX ET SALLES
     // =========================================================
 
-    private List<List<CreneauHoraire>> trouverPairesCreneauxTP(
+    private boolean estCreneau90Min(CreneauHoraire creneau) {
+        return Duration.between(creneau.getHeureDebut(), creneau.getHeureFin())
+                .toMinutes() == DUREE_CRENEAU_MINUTES;
+    }
+
+    private boolean estProfesseurDisponible(
             Long professeurId,
-            List<CreneauHoraire> creneaux
+            CreneauHoraire creneau,
+            List<CreneauHoraire> tousCreneaux,
+            OccupationPlanning occupation
     ) {
+        Set<Long> dispos = occupation.disponibilitesProf.computeIfAbsent(
+                professeurId,
+                id -> {
+                    Set<Long> ids = new HashSet<>();
+                    for (CreneauHoraire c : tousCreneaux) {
+                        if (disponibiliteRepository
+                                .existsByProfesseurIdAndCreneauId(id, c.getId())) {
+                            ids.add(c.getId());
+                        }
+                    }
+                    return ids;
+                });
 
+        return dispos.contains(creneau.getId());
+    }
+
+    private List<List<CreneauHoraire>> calculerPairesTP(
+            Long professeurId,
+            List<CreneauHoraire> creneaux,
+            OccupationPlanning occupation
+    ) {
         List<List<CreneauHoraire>> paires = new ArrayList<>();
 
-        creneaux.sort(
-                Comparator.comparing(CreneauHoraire::getJour)
-                        .thenComparing(CreneauHoraire::getHeureDebut)
-        );
+        List<CreneauHoraire> tries = new ArrayList<>(creneaux);
+        tries.sort(Comparator.comparing(CreneauHoraire::getJour)
+                .thenComparing(CreneauHoraire::getHeureDebut));
 
-        for (int i = 0; i < creneaux.size(); i++) {
+        for (int i = 0; i < tries.size(); i++) {
 
-            CreneauHoraire premier = creneaux.get(i);
+            CreneauHoraire premier = tries.get(i);
 
-            long duree1 = Duration.between(
-                    premier.getHeureDebut(),
-                    premier.getHeureFin()
-            ).toMinutes();
-
-            if (duree1 != 90) {
+            if (!estCreneau90Min(premier)) {
                 continue;
             }
 
-            for (int j = i + 1; j < creneaux.size(); j++) {
+            for (int j = i + 1; j < tries.size(); j++) {
 
-                CreneauHoraire deuxieme = creneaux.get(j);
+                CreneauHoraire deuxieme = tries.get(j);
 
                 if (premier.getJour() != deuxieme.getJour()) {
-                    continue;
+                    break;
                 }
 
-                // Écart obligatoire de 5 minutes
-                if (!premier.getHeureFin()
-                        .plusMinutes(5)
+                // Écart obligatoire de 5 minutes.
+                if (!premier.getHeureFin().plusMinutes(5)
                         .equals(deuxieme.getHeureDebut())) {
                     continue;
                 }
 
-                long duree2 = Duration.between(
-                        deuxieme.getHeureDebut(),
-                        deuxieme.getHeureFin()
-                ).toMinutes();
-
-                if (duree2 != 90) {
+                if (!estCreneau90Min(deuxieme)) {
                     continue;
                 }
 
-                boolean disponible1 =
-                        disponibiliteRepository
-                                .existsByProfesseurIdAndCreneauId(
-                                        professeurId,
-                                        premier.getId()
-                                );
-
-                boolean disponible2 =
-                        disponibiliteRepository
-                                .existsByProfesseurIdAndCreneauId(
-                                        professeurId,
-                                        deuxieme.getId()
-                                );
-
-                if (disponible1 && disponible2) {
+                if (estProfesseurDisponible(professeurId, premier, creneaux, occupation)
+                        && estProfesseurDisponible(professeurId, deuxieme, creneaux, occupation)) {
 
                     List<CreneauHoraire> paire = new ArrayList<>();
-
                     paire.add(premier);
                     paire.add(deuxieme);
-
                     paires.add(paire);
                 }
             }
@@ -451,47 +353,76 @@ public class GenerationEmploiDuTempsService {
         return paires;
     }
 
+    /** Unités de placement possibles pour le professeur. */
+    private List<List<CreneauHoraire>> unitesBase(
+            SeanceAPlacer s,
+            List<CreneauHoraire> creneaux,
+            OccupationPlanning occupation
+    ) {
+        Long profId = s.enseignement.getProfesseur().getId();
 
-    // =========================================================
-    // 6. RECHERCHE DES SALLES
-    // =========================================================
+        if (s.type == TypeSeance.TP) {
+            return occupation.pairesProf.computeIfAbsent(
+                    profId, id -> calculerPairesTP(id, creneaux, occupation));
+        }
+
+        return occupation.coursProf.computeIfAbsent(profId, id -> {
+            List<List<CreneauHoraire>> unites = new ArrayList<>();
+
+            for (CreneauHoraire c : creneaux) {
+                if (estCreneau90Min(c)
+                        && estProfesseurDisponible(id, c, creneaux, occupation)) {
+                    unites.add(List.of(c));
+                }
+            }
+
+            return unites;
+        });
+    }
 
     private List<Salle> trouverSallesCompatibles(
             Groupe groupe,
-            TypeSeance type
+            TypeSeance type,
+            OccupationPlanning occupation
     ) {
+        String cache = groupe.getId() + "-" + type;
 
-        if (groupe.getEffectif() == null
-                || groupe.getEffectif() <= 0) {
-
-            throw new RuntimeException(
-                    "Effectif invalide pour le groupe : "
-                            + groupe.getNom()
-            );
+        List<Salle> cachees = occupation.sallesCompatibles.get(cache);
+        if (cachees != null) {
+            return cachees;
         }
 
-        List<Salle> salles =
-                salleRepository.findByCapaciteGreaterThanEqual(
-                        groupe.getEffectif()
-                );
+        if (groupe.getEffectif() == null || groupe.getEffectif() <= 0) {
+            throw new RuntimeException(
+                    "Effectif invalide pour le groupe : " + groupe.getNom());
+        }
+
+        List<Salle> salles = salleRepository
+                .findByCapaciteGreaterThanEqual(groupe.getEffectif());
+
+        List<Salle> resultat;
 
         if (type == TypeSeance.TP) {
-
-            salles = salles.stream()
-                    .filter(salle ->
-                            salle.getType() == TypeSalle.TP
-                    )
+            resultat = salles.stream()
+                    .filter(s -> s.getType() == TypeSalle.TP)
+                    .sorted(Comparator.comparing(Salle::getCapacite))
+                    .toList();
+        } else {
+            // Les cours évitent les salles de TP tant que possible.
+            resultat = salles.stream()
+                    .sorted(Comparator
+                            .comparingInt((Salle s) ->
+                                    s.getType() == TypeSalle.TP ? 1 : 0)
+                            .thenComparing(Salle::getCapacite))
                     .toList();
         }
 
-        return salles.stream()
-                .sorted(Comparator.comparing(Salle::getCapacite))
-                .toList();
+        occupation.sallesCompatibles.put(cache, resultat);
+        return resultat;
     }
 
-
     // =========================================================
-    // 7. VÉRIFICATION ET RÉSERVATION DES CRÉNEAUX
+    // 6. OCCUPATION : VÉRIFIER, APPLIQUER, ANNULER
     // =========================================================
 
     private boolean estCreneauLibre(
@@ -501,718 +432,541 @@ public class GenerationEmploiDuTempsService {
             Long creneauId,
             OccupationPlanning occupation
     ) {
-
-        String cleProfesseur = professeurId + "-" + creneauId;
-        String cleGroupe = groupeId + "-" + creneauId;
-        String cleSalle = salleId + "-" + creneauId;
-
-        if (occupation.professeurs.contains(cleProfesseur)) {
-            return false;
-        }
-
-        if (occupation.groupes.contains(cleGroupe)) {
-            return false;
-        }
-
-        if (occupation.salles.contains(cleSalle)) {
-            return false;
-        }
-
-        return true;
+        return !occupation.professeurs.contains(professeurId + "-" + creneauId)
+                && !occupation.groupes.contains(groupeId + "-" + creneauId)
+                && !occupation.salles.contains(salleId + "-" + creneauId);
     }
 
+    private void appliquer(Affectation a, OccupationPlanning occ) {
 
-    private void reserverCreneau(
-            Long professeurId,
-            Long groupeId,
-            Long salleId,
-            Long creneauId,
-            OccupationPlanning occupation
-    ) {
+        Long profId = a.seance.enseignement.getProfesseur().getId();
+        Long groupeId = a.seance.groupe.getId();
+        Long matiereId = a.seance.enseignement.getMatiere().getId();
+        CreneauHoraire premier = a.creneaux.get(0);
 
-        occupation.professeurs.add(
-                professeurId + "-" + creneauId
-        );
+        for (CreneauHoraire c : a.creneaux) {
+            occ.professeurs.add(profId + "-" + c.getId());
+            occ.groupes.add(groupeId + "-" + c.getId());
+            occ.salles.add(a.salle.getId() + "-" + c.getId());
+        }
 
-        occupation.groupes.add(
-                groupeId + "-" + creneauId
-        );
+        String matiereKey = cleMatiereJour(groupeId, matiereId, premier);
 
-        occupation.salles.add(
-                salleId + "-" + creneauId
-        );
+        ajuster(occ.chargeGroupeParJour,
+                cleGroupeJour(groupeId, premier), a.creneaux.size());
+
+        ajuster(a.seance.type == TypeSeance.TP
+                ? occ.tpParJour : occ.coursParJour, matiereKey, 1);
     }
 
+    private void annuler(Affectation a, OccupationPlanning occ) {
 
-    // =========================================================
-    // 8. PLACEMENT DES COURS
-    // =========================================================
+        Long profId = a.seance.enseignement.getProfesseur().getId();
+        Long groupeId = a.seance.groupe.getId();
+        Long matiereId = a.seance.enseignement.getMatiere().getId();
+        CreneauHoraire premier = a.creneaux.get(0);
 
-    private boolean placerCours(
-            SeanceAPlacer aPlacer,
-            List<CreneauHoraire> creneaux,
+        for (CreneauHoraire c : a.creneaux) {
+            occ.professeurs.remove(profId + "-" + c.getId());
+            occ.groupes.remove(groupeId + "-" + c.getId());
+            occ.salles.remove(a.salle.getId() + "-" + c.getId());
+        }
+
+        String matiereKey = cleMatiereJour(groupeId, matiereId, premier);
+
+        ajuster(occ.chargeGroupeParJour,
+                cleGroupeJour(groupeId, premier), -a.creneaux.size());
+
+        ajuster(a.seance.type == TypeSeance.TP
+                ? occ.tpParJour : occ.coursParJour, matiereKey, -1);
+    }
+
+    /**
+     * Pré-remplit l'occupation avec les séances des AUTRES emplois du temps
+     * (professeurs / salles partagés). Les emplois remplacés sont ignorés.
+     */
+    private void chargerOccupationExistante(
             OccupationPlanning occupation,
-            EmploiDuTemps emploi
+            EmploiDuTemps nouvelEmploi,
+            List<EmploiDuTemps> anciensEmplois
     ) {
+        Set<Long> emploisIgnores = new HashSet<>();
+        emploisIgnores.add(nouvelEmploi.getId());
 
-        Long professeurId =
-                aPlacer.enseignement.getProfesseur().getId();
+        if (anciensEmplois != null) {
+            for (EmploiDuTemps ancien : anciensEmplois) {
+                emploisIgnores.add(ancien.getId());
+            }
+        }
 
-        Long groupeId = aPlacer.groupe.getId();
+        for (Seance s : seanceRepository.findAll()) {
 
-        Long matiereId =
-                aPlacer.enseignement.getMatiere().getId();
-
-        List<CreneauHoraire> creneauxTries =
-                new ArrayList<>(creneaux);
-
-        creneauxTries.sort(
-                Comparator
-                        .comparingInt((CreneauHoraire creneau) ->
-                                existeTPMatiereCeJour(
-                                        occupation,
-                                        groupeId,
-                                        matiereId,
-                                        creneau
-                                ) ? 1 : 0
-                        )
-                        .thenComparingInt(creneau ->
-                                getChargeJour(
-                                        occupation,
-                                        groupeId,
-                                        creneau
-                                )
-                        )
-                        .thenComparing(
-                                CreneauHoraire::getHeureDebut
-                        )
-        );
-
-        for (CreneauHoraire creneau : creneauxTries) {
-
-            long duree = Duration.between(
-                    creneau.getHeureDebut(),
-                    creneau.getHeureFin()
-            ).toMinutes();
-
-            if (duree != 90) {
+            if (s.getEmploiDuTemps() == null
+                    || emploisIgnores.contains(s.getEmploiDuTemps().getId())
+                    || s.getCreneau() == null) {
                 continue;
             }
 
-            boolean disponible =
-                    disponibiliteRepository
-                            .existsByProfesseurIdAndCreneauId(
-                                    professeurId,
-                                    creneau.getId()
-                            );
+            Long creneauId = s.getCreneau().getId();
 
-            if (!disponible) {
+            if (s.getProfesseur() != null) {
+                occupation.professeurs.add(s.getProfesseur().getId() + "-" + creneauId);
+            }
+            if (s.getGroupe() != null) {
+                occupation.groupes.add(s.getGroupe().getId() + "-" + creneauId);
+            }
+            if (s.getSalle() != null) {
+                occupation.salles.add(s.getSalle().getId() + "-" + creneauId);
+            }
+        }
+    }
+
+    // =========================================================
+    // 7. CANDIDATS POUR UNE SÉANCE
+    // =========================================================
+
+    private List<Affectation> candidats(
+            SeanceAPlacer s,
+            List<CreneauHoraire> creneaux,
+            OccupationPlanning occ
+    ) {
+        Long profId = s.enseignement.getProfesseur().getId();
+        Long groupeId = s.groupe.getId();
+        Long matiereId = s.enseignement.getMatiere().getId();
+
+        List<Salle> salles = trouverSallesCompatibles(s.groupe, s.type, occ);
+        List<Affectation> resultat = new ArrayList<>();
+
+        for (List<CreneauHoraire> unite : unitesBase(s, creneaux, occ)) {
+
+            // Aucune limite du nombre de séances de la matière par jour.
+
+            boolean libre = unite.stream().allMatch(c ->
+                    !occ.professeurs.contains(profId + "-" + c.getId())
+                            && !occ.groupes.contains(groupeId + "-" + c.getId()));
+
+            if (!libre) {
                 continue;
             }
-
-            List<Salle> salles = trouverSallesCompatibles(
-                    aPlacer.groupe,
-                    TypeSeance.COURS
-            );
 
             for (Salle salle : salles) {
 
-                boolean libre = estCreneauLibre(
-                        professeurId,
-                        groupeId,
-                        salle.getId(),
-                        creneau.getId(),
-                        occupation
-                );
+                boolean salleLibre = unite.stream().allMatch(c ->
+                        estCreneauLibre(profId, groupeId, salle.getId(), c.getId(), occ));
 
-                if (!libre) {
-                    continue;
+                if (salleLibre) {
+                    resultat.add(new Affectation(s, unite, salle));
+                    break;
                 }
-
-                Seance seance = new Seance();
-
-                seance.setDate(null);
-                seance.setStatut(StatutSeance.PLANIFIEE);
-                seance.setType(TypeSeance.COURS);
-                seance.setProfesseur(
-                        aPlacer.enseignement.getProfesseur()
-                );
-                seance.setGroupe(aPlacer.groupe);
-                seance.setMatiere(
-                        aPlacer.enseignement.getMatiere()
-                );
-                seance.setSalle(salle);
-                seance.setCreneau(creneau);
-                seance.setEmploiDuTemps(emploi);
-
-                seanceRepository.save(seance);
-
-                reserverCreneau(
-                        professeurId,
-                        groupeId,
-                        salle.getId(),
-                        creneau.getId(),
-                        occupation
-                );
-
-                enregistrerCours(
-                        occupation,
-                        groupeId,
-                        matiereId,
-                        creneau
-                );
-
-                return true;
             }
         }
 
-        return false;
-    }
-
-
-    private boolean existeTPMatiereCeJour(
-            OccupationPlanning occupation,
-            Long groupeId,
-            Long matiereId,
-            CreneauHoraire creneau
-    ) {
-
-        String key = cleMatiereJour(
-                groupeId,
-                matiereId,
-                creneau
-        );
-
-        return occupation.matieresTPParJour.contains(key);
-    }
-
-
-    // =========================================================
-    // 9. PLACEMENT DES TP
-    // =========================================================
-
-    private boolean placerTP(
-            SeanceAPlacer aPlacer,
-            List<CreneauHoraire> creneaux,
-            OccupationPlanning occupation,
-            EmploiDuTemps emploi
-    ) {
-
-        Long professeurId =
-                aPlacer.enseignement.getProfesseur().getId();
-
-        Long groupeId = aPlacer.groupe.getId();
-
-        Long matiereId =
-                aPlacer.enseignement.getMatiere().getId();
-
-        List<List<CreneauHoraire>> paires =
-                trouverPairesCreneauxTP(
-                        professeurId,
-                        creneaux
-                );
-
-        paires.sort(
+        // Préférence : éviter un cours et un TP de la même matière le même jour,
+        // équilibrer la charge du groupe, puis ordre chronologique.
+        resultat.sort(
                 Comparator
-                        .comparingInt((List<CreneauHoraire> paire) ->
-                                existeCoursMatiereCeJour(
-                                        occupation,
-                                        groupeId,
-                                        matiereId,
-                                        paire.get(0)
-                                ) ? 1 : 0
-                        )
-                        .thenComparingInt(paire ->
-                                getChargeJour(
-                                        occupation,
-                                        groupeId,
-                                        paire.get(0)
-                                )
-                        )
-                        .thenComparingInt(paire ->
-                                getNombreTPJour(
-                                        occupation,
-                                        groupeId,
-                                        paire.get(0)
-                                )
-                        )
+                        .comparingInt((Affectation a) -> {
+                            String cle = cleMatiereJour(groupeId, matiereId, a.creneaux.get(0));
+                            Map<String, Integer> autre = s.type == TypeSeance.TP
+                                    ? occ.coursParJour : occ.tpParJour;
+                            return autre.containsKey(cle) ? 1 : 0;
+                        })
+                        .thenComparingInt(a ->
+                                getChargeJour(occ, groupeId, a.creneaux.get(0)))
+                        .thenComparing(a -> a.creneaux.get(0).getJour())
+                        .thenComparing(a -> a.creneaux.get(0).getHeureDebut())
         );
 
-        for (List<CreneauHoraire> paire : paires) {
-
-            CreneauHoraire premier = paire.get(0);
-            CreneauHoraire deuxieme = paire.get(1);
-
-            // Maximum 2 blocs TP par groupe et par jour
-            if (getNombreTPJour(
-                    occupation,
-                    groupeId,
-                    premier
-            ) >= 2) {
-                continue;
-            }
-
-            List<Salle> salles = trouverSallesCompatibles(
-                    aPlacer.groupe,
-                    TypeSeance.TP
-            );
-
-            for (Salle salle : salles) {
-
-                boolean premierLibre = estCreneauLibre(
-                        professeurId,
-                        groupeId,
-                        salle.getId(),
-                        premier.getId(),
-                        occupation
-                );
-
-                boolean deuxiemeLibre = estCreneauLibre(
-                        professeurId,
-                        groupeId,
-                        salle.getId(),
-                        deuxieme.getId(),
-                        occupation
-                );
-
-                if (!premierLibre || !deuxiemeLibre) {
-                    continue;
-                }
-
-                Seance seance1 = new Seance();
-
-                seance1.setDate(null);
-                seance1.setStatut(StatutSeance.PLANIFIEE);
-                seance1.setType(TypeSeance.TP);
-                seance1.setProfesseur(
-                        aPlacer.enseignement.getProfesseur()
-                );
-                seance1.setGroupe(aPlacer.groupe);
-                seance1.setMatiere(
-                        aPlacer.enseignement.getMatiere()
-                );
-                seance1.setSalle(salle);
-                seance1.setCreneau(premier);
-                seance1.setEmploiDuTemps(emploi);
-
-                Seance seance2 = new Seance();
-
-                seance2.setDate(null);
-                seance2.setStatut(StatutSeance.PLANIFIEE);
-                seance2.setType(TypeSeance.TP);
-                seance2.setProfesseur(
-                        aPlacer.enseignement.getProfesseur()
-                );
-                seance2.setGroupe(aPlacer.groupe);
-                seance2.setMatiere(
-                        aPlacer.enseignement.getMatiere()
-                );
-                seance2.setSalle(salle);
-                seance2.setCreneau(deuxieme);
-                seance2.setEmploiDuTemps(emploi);
-
-                seanceRepository.save(seance1);
-                seanceRepository.save(seance2);
-
-                reserverCreneau(
-                        professeurId,
-                        groupeId,
-                        salle.getId(),
-                        premier.getId(),
-                        occupation
-                );
-
-                reserverCreneau(
-                        professeurId,
-                        groupeId,
-                        salle.getId(),
-                        deuxieme.getId(),
-                        occupation
-                );
-
-                enregistrerTP(
-                        occupation,
-                        groupeId,
-                        matiereId,
-                        premier,
-                        deuxieme
-                );
-
-                return true;
-            }
-        }
-
-        return false;
+        return resultat;
     }
-
-
-    private boolean existeCoursMatiereCeJour(
-            OccupationPlanning occupation,
-            Long groupeId,
-            Long matiereId,
-            CreneauHoraire creneau
-    ) {
-
-        String key = cleMatiereJour(
-                groupeId,
-                matiereId,
-                creneau
-        );
-
-        return occupation.matieresCoursParJour.contains(key);
-    }
-
 
     // =========================================================
-    // 10. MÉTHODE COMMUNE DE CRÉATION DE L'EMPLOI DU TEMPS
+    // 8. RECHERCHE AVEC RETOUR ARRIÈRE
     // =========================================================
 
     /**
-     * Construit le nouvel emploi du temps.
-     *
-     * Les anciennes séances ne sont supprimées qu'après
-     * l'enregistrement réussi de toutes les nouvelles séances.
-     *
-     * Si une erreur survient, la transaction annule les changements.
+     * Place toutes les séances. À chaque étape on traite la séance la plus
+     * contrainte (le moins de candidats) ; en cas d'impasse on annule le
+     * dernier choix et on essaie le suivant.
      */
+    private boolean resoudre(
+            List<SeanceAPlacer> restantes,
+            List<Affectation> solution,
+            List<CreneauHoraire> creneaux,
+            OccupationPlanning occ,
+            Recherche recherche
+    ) {
+        if (restantes.isEmpty()) {
+            return true;
+        }
+
+        if (++recherche.noeuds > MAX_NOEUDS_RECHERCHE) {
+            recherche.limiteAtteinte = true;
+            return false;
+        }
+
+        SeanceAPlacer choisie = null;
+        List<Affectation> meilleurs = null;
+
+        for (SeanceAPlacer s : restantes) {
+
+            List<Affectation> cands = candidats(s, creneaux, occ);
+
+            if (cands.isEmpty()) {
+                // Impasse : on garde le diagnostic de l'impasse la plus profonde.
+                if (solution.size() > recherche.profondeurMax) {
+                    recherche.profondeurMax = solution.size();
+                    recherche.diagnostic =
+                            "Impossible de placer " + s.type
+                                    + " pour la matière "
+                                    + s.enseignement.getMatiere().getNom()
+                                    + " et le groupe " + s.groupe.getNom()
+                                    + " → " + diagnostiquerEchec(s, creneaux, occ);
+                }
+                return false;
+            }
+
+            if (meilleurs == null || cands.size() < meilleurs.size()) {
+                choisie = s;
+                meilleurs = cands;
+            }
+        }
+
+        restantes.remove(choisie);
+
+        for (Affectation a : meilleurs) {
+
+            appliquer(a, occ);
+            solution.add(a);
+
+            if (resoudre(restantes, solution, creneaux, occ, recherche)) {
+                return true;
+            }
+
+            solution.remove(solution.size() - 1);
+            annuler(a, occ);
+
+            if (recherche.limiteAtteinte) {
+                break;
+            }
+        }
+
+        restantes.add(choisie);
+        return false;
+    }
+
+    // =========================================================
+    // 9. DIAGNOSTIC D'UNE IMPASSE
+    // =========================================================
+
+    private String diagnostiquerEchec(
+            SeanceAPlacer s,
+            List<CreneauHoraire> creneaux,
+            OccupationPlanning occ
+    ) {
+        Long profId = s.enseignement.getProfesseur().getId();
+        Long groupeId = s.groupe.getId();
+        String prof = s.enseignement.getProfesseur().getNom();
+        boolean tp = s.type == TypeSeance.TP;
+
+        List<Salle> salles = trouverSallesCompatibles(s.groupe, s.type, occ);
+
+        if (salles.isEmpty()) {
+            return "aucune salle " + (tp ? "de type TP " : "")
+                    + "avec une capacité >= " + s.groupe.getEffectif();
+        }
+
+        List<List<CreneauHoraire>> unites = unitesBase(s, creneaux, occ);
+
+        if (unites.isEmpty()) {
+            return "le professeur " + prof + " n'a aucune disponibilité"
+                    + (tp ? " sur 2 créneaux de 90 min consécutifs avec 5 min d'écart"
+                    + " (vérifiez les horaires des créneaux et ses disponibilités)"
+                    : " sur un créneau de 90 min");
+        }
+
+        int profOccupe = 0;
+        int groupeOccupe = 0;
+        int salleOccupee = 0;
+
+        for (List<CreneauHoraire> unite : unites) {
+
+            if (unite.stream().anyMatch(c ->
+                    occ.professeurs.contains(profId + "-" + c.getId()))) {
+                profOccupe++;
+            } else if (unite.stream().anyMatch(c ->
+                    occ.groupes.contains(groupeId + "-" + c.getId()))) {
+                groupeOccupe++;
+            } else {
+                salleOccupee++;
+            }
+        }
+
+        return unites.size() + " option(s) possible(s) pour " + prof
+                + " : " + profOccupe + " professeur déjà occupé, "
+                + groupeOccupe + " groupe déjà occupé, "
+                + salleOccupee + " sans salle libre (" + salles.size()
+                + " salle(s) compatible(s))";
+    }
+
+    // =========================================================
+    // 10. CRÉATION DE L'EMPLOI DU TEMPS
+    // =========================================================
+
+    private Seance creerSeance(
+            Affectation a,
+            CreneauHoraire creneau,
+            EmploiDuTemps emploi
+    ) {
+        Seance seance = new Seance();
+
+        seance.setDate(null);
+        seance.setStatut(StatutSeance.PLANIFIEE);
+        seance.setType(a.seance.type);
+        seance.setProfesseur(a.seance.enseignement.getProfesseur());
+        seance.setGroupe(a.seance.groupe);
+        seance.setMatiere(a.seance.enseignement.getMatiere());
+        seance.setSalle(a.salle);
+        seance.setCreneau(creneau);
+        seance.setEmploiDuTemps(emploi);
+
+        return seance;
+    }
+
     private EmploiDuTemps construireEtEnregistrerEmploi(
             String semestre,
             Administrateur administrateur,
             List<EmploiDuTemps> anciensEmplois,
             List<SeanceAPlacer> seances
     ) {
-
         if (seances == null || seances.isEmpty()) {
-            throw new RuntimeException(
-                    "Aucune séance à générer"
-            );
+            throw new RuntimeException("Aucune séance à générer");
         }
 
-        List<CreneauHoraire> creneaux =
-                creneauHoraireRepository.findAll();
+        List<CreneauHoraire> creneaux = creneauHoraireRepository.findAll();
 
         if (creneaux.isEmpty()) {
-            throw new RuntimeException(
-                    "Aucun créneau horaire disponible"
-            );
+            throw new RuntimeException("Aucun créneau horaire disponible");
         }
 
         EmploiDuTemps emploi = new EmploiDuTemps();
-
         emploi.setSemestre(semestre);
         emploi.setAdministrateur(administrateur);
-
         emploi = emploiDuTempsRepository.save(emploi);
 
         OccupationPlanning occupation = new OccupationPlanning();
+        chargerOccupationExistante(occupation, emploi, anciensEmplois);
 
-        List<SeanceAPlacer> cours = new ArrayList<>();
-        List<SeanceAPlacer> tp = new ArrayList<>();
+        // 1) Recherche de la solution complète EN MÉMOIRE.
+        List<Affectation> solution = new ArrayList<>();
+        Recherche recherche = new Recherche();
 
-        List<SeanceAPlacer> seancesOrdonnees =
-                new ArrayList<>();
+        boolean ok = resoudre(
+                new ArrayList<>(seances),
+                solution,
+                creneaux,
+                occupation,
+                recherche
+        );
 
-        for (SeanceAPlacer seance : seances) {
+        if (!ok) {
+            throw new RuntimeException(
+                    recherche.limiteAtteinte
+                            ? "Limite de recherche atteinte. Dernière impasse : "
+                            + recherche.diagnostic
+                            : recherche.diagnostic
+            );
+        }
 
-            if (seance.type == TypeSeance.TP) {
-                tp.add(seance);
-            } else {
-                cours.add(seance);
+        // 2) Enregistrement uniquement si tout a pu être placé.
+        for (Affectation a : solution) {
+            for (CreneauHoraire creneau : a.creneaux) {
+                seanceRepository.save(creerSeance(a, creneau, emploi));
             }
         }
 
-        // Alterner cours et TP
-        int max = Math.max(cours.size(), tp.size());
-
-        for (int i = 0; i < max; i++) {
-
-            if (i < cours.size()) {
-                seancesOrdonnees.add(cours.get(i));
-            }
-
-            if (i < tp.size()) {
-                seancesOrdonnees.add(tp.get(i));
-            }
-        }
-
-        // Placer toutes les séances
-        for (SeanceAPlacer seance : seancesOrdonnees) {
-
-            boolean placee;
-
-            if (seance.type == TypeSeance.TP) {
-
-                placee = placerTP(
-                        seance,
-                        creneaux,
-                        occupation,
-                        emploi
-                );
-
-            } else {
-
-                placee = placerCours(
-                        seance,
-                        creneaux,
-                        occupation,
-                        emploi
-                );
-            }
-
-            if (!placee) {
-
-                throw new RuntimeException(
-                        "Impossible de placer "
-                                + seance.type
-                                + " pour la matière "
-                                + seance.enseignement
-                                .getMatiere().getNom()
-                                + " et le groupe "
-                                + seance.groupe.getNom()
-                );
-            }
-        }
-
-        /*
-         * Forcer l'enregistrement des nouvelles séances
-         * avant de supprimer les anciens emplois du temps.
-         */
         seanceRepository.flush();
 
-        /*
-         * Supprimer les anciens emplois seulement lorsque
-         * toutes les nouvelles séances ont été placées.
-         */
-        if (anciensEmplois != null
-                && !anciensEmplois.isEmpty()) {
-
-            emploiDuTempsRepository.deleteAll(
-                    anciensEmplois
-            );
-
+        // 3) Suppression des anciens emplois après succès.
+        if (anciensEmplois != null && !anciensEmplois.isEmpty()) {
+            emploiDuTempsRepository.deleteAll(anciensEmplois);
             emploiDuTempsRepository.flush();
         }
 
         return emploi;
     }
 
-
     // =========================================================
-    // 11. GÉNÉRATION INITIALE
+    // 11. GÉNÉRATION INITIALE ET RÉGÉNÉRATION
     // =========================================================
 
-    /**
-     * Génération initiale demandée par l'administrateur.
-     * Cette méthode peut créer les affectations automatiques.
-     */
     public EmploiDuTemps genererEmploiDuTemps(
             Long filiereId,
             String semestre,
             Long administrateurId
     ) {
-
-        if (semestre == null || semestre.isBlank()) {
-            throw new RuntimeException(
-                    "Le semestre est obligatoire"
-            );
-        }
-
-        verifierDonneesGeneration(
-                filiereId,
-                semestre
-        );
-
-        List<EmploiDuTemps> anciensEmplois =
-                seanceRepository.findTimetablesByFiliereAndSemestre(
-                        filiereId,
-                        semestre
-                );
-
-        Administrateur administrateur =
-                administrateurRepository.findById(administrateurId)
-                        .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Administrateur introuvable"
-                                )
-                        );
-
-        // Génération initiale des affectations
-        List<SeanceAPlacer> seances =
-                preparerSeances(
-                        filiereId,
-                        semestre
-                );
-
-        return construireEtEnregistrerEmploi(
-                semestre,
-                administrateur,
-                anciensEmplois,
-                seances
-        );
+        return generer(filiereId, semestre, administrateurId, true);
     }
 
-
-    // =========================================================
-    // 12. RÉGÉNÉRATION AVEC LES AFFECTATIONS EXISTANTES
-    // =========================================================
-
-    /**
-     * Régénère un emploi du temps sans modifier les affectations.
-     */
     public EmploiDuTemps genererAvecAffectationsExistantes(
             Long filiereId,
             String semestre,
             Long administrateurId
     ) {
+        return generer(filiereId, semestre, administrateurId, false);
+    }
 
+    private EmploiDuTemps generer(
+            Long filiereId,
+            String semestre,
+            Long administrateurId,
+            boolean nouvellesAffectations
+    ) {
         if (semestre == null || semestre.isBlank()) {
-            throw new RuntimeException(
-                    "Le semestre est obligatoire"
-            );
+            throw new RuntimeException("Le semestre est obligatoire");
         }
 
-        verifierDonneesGeneration(
-                filiereId,
-                semestre
-        );
+        verifierDonneesGeneration(filiereId, semestre);
 
         List<EmploiDuTemps> anciensEmplois =
                 seanceRepository.findTimetablesByFiliereAndSemestre(
-                        filiereId,
-                        semestre
-                );
+                        filiereId, semestre);
 
         Administrateur administrateur =
                 administrateurRepository.findById(administrateurId)
                         .orElseThrow(() ->
-                                new RuntimeException(
-                                        "Administrateur introuvable"
-                                )
-                        );
+                                new RuntimeException("Administrateur introuvable"));
 
-        // Récupérer les affectations déjà existantes
-        // Aucune réaffectation des professeurs
-        List<SeanceAPlacer> seances =
-                preparerSeancesExistantes(
-                        filiereId,
-                        semestre
-                );
+        List<SeanceAPlacer> seances = nouvellesAffectations
+                ? preparerSeances(filiereId, semestre)
+                : preparerSeancesExistantes(filiereId, semestre);
 
         return construireEtEnregistrerEmploi(
-                semestre,
-                administrateur,
-                anciensEmplois,
-                seances
-        );
+                semestre, administrateur, anciensEmplois, seances);
     }
 
-
     // =========================================================
-    // 13. RÉCUPÉRATION DES SÉANCES D'UN EMPLOI DU TEMPS
+    // 12. RÉCUPÉRATION DES SÉANCES
     // =========================================================
 
     @Transactional(readOnly = true)
-    public List<SeanceResponse> getSeances(
-            Long emploiId
-    ) {
+    public List<SeanceResponse> getSeances(Long emploiId) {
 
         return seanceRepository.findByEmploiDuTempsId(emploiId)
                 .stream()
                 .map(s -> new SeanceResponse(
                         s.getId(),
                         s.getDate(),
-
                         s.getCreneau().getJour().name(),
                         s.getCreneau().getHeureDebut().toString(),
                         s.getCreneau().getHeureFin().toString(),
-
                         s.getType().name(),
                         s.getStatut().name(),
-
                         s.getMatiere().getNom(),
-
-                        s.getProfesseur().getPrenom()
-                                + " "
-                                + s.getProfesseur().getNom(),
-
+                        s.getProfesseur().getPrenom() + " " + s.getProfesseur().getNom(),
                         s.getSalle().getNom(),
                         s.getGroupe().getNom()
                 ))
                 .toList();
     }
 
-
     // =========================================================
-    // 14. RÉGÉNÉRATION APRÈS MODIFICATION DES DISPONIBILITÉS
+    // 13. RÉGÉNÉRATION APRÈS MODIFICATION DES DISPONIBILITÉS
     // =========================================================
 
-    /**
-     * Régénère les emplois du temps dans lesquels le professeur
-     * possède déjà des séances.
-     *
-     * Les affectations automatiques restent inchangées.
-     */
-    public void regenererEmploisDuTempsProfesseur(
-            Long professeurId
-    ) {
+    public void regenererEmploisDuTempsProfesseur(Long professeurId) {
 
         List<Seance> seancesExistantes =
-                seanceRepository.findByProfesseurId(
-                        professeurId
-                );
+                seanceRepository.findByProfesseurId(professeurId);
 
         if (seancesExistantes.isEmpty()) {
             return;
         }
 
-        // Une seule régénération par filière et semestre
-        Map<String, CibleRegeneration> emploisARegenerer =
-                new LinkedHashMap<>();
+        Map<String, CibleRegeneration> cibles = new LinkedHashMap<>();
 
         for (Seance seance : seancesExistantes) {
 
-            EmploiDuTemps emploi =
-                    seance.getEmploiDuTemps();
-
-            Groupe groupe =
-                    seance.getGroupe();
+            EmploiDuTemps emploi = seance.getEmploiDuTemps();
+            Groupe groupe = seance.getGroupe();
 
             if (emploi == null
                     || groupe == null
                     || groupe.getFiliere() == null
                     || emploi.getAdministrateur() == null
                     || emploi.getSemestre() == null) {
-
                 continue;
             }
 
-            Long filiereId =
-                    groupe.getFiliere().getId();
+            Long filiereId = groupe.getFiliere().getId();
+            String semestre = emploi.getSemestre();
 
-            String semestre =
-                    emploi.getSemestre();
-
-            Long administrateurId =
-                    emploi.getAdministrateur().getId();
-
-            String cle =
-                    filiereId + "-" + semestre;
-
-            emploisARegenerer.putIfAbsent(
-                    cle,
+            cibles.putIfAbsent(
+                    filiereId + "-" + semestre,
                     new CibleRegeneration(
                             filiereId,
                             semestre,
-                            administrateurId
+                            emploi.getAdministrateur().getId()));
+        }
+
+        for (CibleRegeneration cible : cibles.values()) {
+            genererAvecAffectationsExistantes(
+                    cible.filiereId(),
+                    cible.semestre(),
+                    cible.administrateurId());
+        }
+    }
+
+
+    public void regenererEmploiDuTempsApresRefus(
+            Long professeurId,
+            Long groupeId
+    ) {
+
+        // Récupérer les séances actuelles du professeur.
+        List<Seance> seancesExistantes =
+                seanceRepository.findByProfesseurId(professeurId);
+
+        Map<String, CibleRegeneration> cibles = new LinkedHashMap<>();
+
+        // Identifier les emplois du temps concernés par ce groupe.
+        for (Seance seance : seancesExistantes) {
+
+            Groupe groupe = seance.getGroupe();
+            EmploiDuTemps emploi = seance.getEmploiDuTemps();
+
+            if (groupe == null
+                    || !groupe.getId().equals(groupeId)
+                    || emploi == null
+                    || groupe.getFiliere() == null
+                    || emploi.getAdministrateur() == null
+                    || emploi.getSemestre() == null) {
+                continue;
+            }
+
+            Long filiereId = groupe.getFiliere().getId();
+            String semestre = emploi.getSemestre();
+
+            cibles.putIfAbsent(
+                    filiereId + "-" + semestre,
+                    new CibleRegeneration(
+                            filiereId,
+                            semestre,
+                            emploi.getAdministrateur().getId()
                     )
             );
         }
 
-        // Régénérer chaque filière/semestre concerné
-        for (CibleRegeneration cible :
-                emploisARegenerer.values()) {
+        if (cibles.isEmpty()) {
+            throw new RuntimeException(
+                    "Aucun emploi du temps trouvé pour ce professeur et ce groupe."
+            );
+        }
 
-            genererAvecAffectationsExistantes(
+        // Régénérer avec de nouvelles affectations automatiques.
+        for (CibleRegeneration cible : cibles.values()) {
+
+            genererEmploiDuTemps(
                     cible.filiereId(),
                     cible.semestre(),
                     cible.administrateurId()
@@ -1221,7 +975,7 @@ public class GenerationEmploiDuTempsService {
     }
 
 
-    // Informations nécessaires pour une régénération
+
     private record CibleRegeneration(
             Long filiereId,
             String semestre,

@@ -1,0 +1,192 @@
+
+<div class="page-container">
+
+  <button class="btn-retour" routerLink="/dashboard-professeur">
+    ← Retour au dashboard
+  </button>
+
+  <div class="hero">
+    <div>
+      <h1>Mes groupes affectés</h1>
+      <p>
+        Voici les groupes qui vous sont affectés.
+        Vous pouvez refuser un groupe si nécessaire.
+      </p>
+    </div>
+    <div class="hero-icon">👥</div>
+  </div>
+
+  <!-- Message de succès -->
+  <div class="message succes" *ngIf="messageSucces">
+    ✓ {{ messageSucces }}
+  </div>
+
+  <!-- Message d'erreur -->
+  <div class="message erreur" *ngIf="messageErreur">
+    ⚠ {{ messageErreur }}
+  </div>
+
+  <!-- Chargement -->
+  <div class="loading" *ngIf="chargement">
+    Chargement des groupes...
+  </div>
+
+  <ng-container *ngIf="!chargement">
+
+    <!-- Filtres -->
+    <div class="filters" *ngIf="groupes.length > 0">
+
+      <div class="search-box">
+        <span>⌕</span>
+
+        <input
+          type="text"
+          [(ngModel)]="recherche"
+          placeholder="Rechercher un groupe ou une filière..."
+        >
+      </div>
+
+      <select [(ngModel)]="semestreSelectionne">
+        <option value="">Tous les semestres</option>
+
+        <option
+          *ngFor="let semestre of semestresDisponibles"
+          [value]="semestre">
+          {{ semestre }}
+        </option>
+      </select>
+
+    </div>
+
+    <!-- Légende -->
+    <div class="legend">
+
+      <div>
+        <span class="dot accepte"></span>
+        <span>ACCEPTE : groupe affecté et accepté par défaut</span>
+      </div>
+
+      <div>
+        <span class="dot refuse"></span>
+        <span>REFUSE : groupe refusé par le professeur</span>
+      </div>
+
+    </div>
+
+    <!-- Liste des groupes -->
+    <div class="groupes-grid" *ngIf="groupesFiltres.length > 0">
+
+      <div
+        class="groupe-card"
+        *ngFor="let groupe of groupesFiltres">
+
+        <div class="groupe-header">
+
+          <div class="groupe-icon">🎓</div>
+
+          <div class="groupe-info">
+            <h3>{{ groupe.nom }}</h3>
+            <p>{{ groupe.filiere }}</p>
+          </div>
+
+          <!-- Statut actuel -->
+          <span
+            class="statut"
+            [class.statut-accepte]="getPreference(groupe.id) === 'ACCEPTE'"
+            [class.statut-refuse]="getPreference(groupe.id) === 'REFUSE'">
+
+            {{ getPreference(groupe.id) || 'ACCEPTE' }}
+
+          </span>
+
+        </div>
+
+        <!-- Informations du groupe -->
+        <div class="groupe-details">
+
+          <div>
+            <span class="detail-label">Effectif</span>
+            <strong>{{ groupe.effectif }} étudiants</strong>
+          </div>
+
+          <div>
+            <span class="detail-label">Semestres</span>
+            <strong>
+              {{ groupe.semestres?.join(', ') || 'Non renseigné' }}
+            </strong>
+          </div>
+
+        </div>
+
+        <!-- Actions -->
+        <div class="actions">
+
+          <!-- Groupe accepté -->
+          <div
+            class="groupe-accepte"
+            *ngIf="getPreference(groupe.id) !== 'REFUSE'">
+
+            ✓ Vous êtes affecté à ce groupe
+
+          </div>
+
+          <!-- Bouton refuser -->
+          <button
+            type="button"
+            class="btn-refuse"
+            *ngIf="getPreference(groupe.id) !== 'REFUSE'"
+            [disabled]="groupeEnCours !== null"
+            (click)="definirPreference(groupe.id, 'REFUSE')">
+
+            {{
+              groupeEnCours === groupe.id
+                ? 'Traitement...'
+                : '✕ Refuser ce groupe'
+            }}
+
+          </button>
+
+          <!-- Groupe refusé -->
+          <div
+            class="groupe-refuse"
+            *ngIf="getPreference(groupe.id) === 'REFUSE'">
+
+            ✕ Vous avez refusé ce groupe
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- Aucun résultat après filtrage -->
+    <div
+      class="empty-state"
+      *ngIf="groupes.length > 0 && groupesFiltres.length === 0">
+
+      <div>🔎</div>
+      <h3>Aucun groupe trouvé</h3>
+      <p>
+        Essayez de modifier votre recherche ou le semestre sélectionné.
+      </p>
+
+    </div>
+
+    <!-- Aucun groupe -->
+    <div
+      class="empty-state"
+      *ngIf="groupes.length === 0">
+
+      <div>📭</div>
+      <h3>Aucun groupe affecté</h3>
+      <p>
+        Aucun groupe ne vous a été affecté pour le moment.
+      </p>
+
+    </div>
+
+  </ng-container>
+
+</div>

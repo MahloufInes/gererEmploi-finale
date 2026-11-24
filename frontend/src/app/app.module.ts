@@ -32,6 +32,7 @@ import { MesDisponibilitesComponent } from './professeur/mes-disponibilites/mes-
 import { MonEmploiComponent } from './etudiant/mon-emploi/mon-emploi.component';
 import { EmploiProfesseurComponent } from './professeur/emploi-professeur-component/emploi-professeur-component.component';
 import { MesPreferencesComponent } from './professeur/mes-preferences/mes-preferences.component';
+import { PreferencesGroupesComponent } from './professeur/preferences-groupes/preferences-groupes.component';
 
 
 
@@ -60,6 +61,7 @@ import { MesPreferencesComponent } from './professeur/mes-preferences/mes-prefer
     MonEmploiComponent,
     EmploiProfesseurComponent,
     MesPreferencesComponent,
+    
   ],
   imports: [
     BrowserModule,
@@ -68,6 +70,7 @@ import { MesPreferencesComponent } from './professeur/mes-preferences/mes-prefer
     ReactiveFormsModule,
     HttpClientModule,
     AppRoutingModule,
+    PreferencesGroupesComponent,
    
     
   ],

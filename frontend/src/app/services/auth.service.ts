@@ -38,6 +38,24 @@ export class AuthService {
     return localStorage.getItem('token');
   }
 
+  getCurrentUser(): LoginResponse | null {
+    const user = localStorage.getItem('user');
+
+    if (!user) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(user) as LoginResponse;
+    } catch {
+      return null;
+    }
+  }
+
+  getUserId(): number | null {
+    return this.getCurrentUser()?.id ?? null;
+  }
+
   logout(): void {
     localStorage.removeItem('token');
     localStorage.removeItem('role');

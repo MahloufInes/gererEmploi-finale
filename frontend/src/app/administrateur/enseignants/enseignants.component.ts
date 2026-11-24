@@ -1,6 +1,8 @@
 
 import { Component, OnInit } from '@angular/core';
-import { HttpClient, HttpParams } from '@angular/common/http';
+import { forkJoin, of } from 'rxjs';
+import { catchError } from 'rxjs/operators';
+import Swal from 'sweetalert2';
 
 import {
   Professeur,
@@ -15,19 +17,9 @@ import {
 
 import {
   Matiere,
-  MatiereService
-} from '../../services/matiere.service';
-
-interface PreferenceMatiere {
-  id: number;
-  professeur: {
-    id: number;
-  };
-  matiere: {
-    id: number;
-    nom: string;
-  };
-}
+  PreferenceMatiere,
+  PreferenceMatiereService
+} from '../../services/preference-matiere.service';
 
 @Component({
   selector: 'app-enseignants',
@@ -63,24 +55,27 @@ export class EnseignantsComponent implements OnInit {
   matieres: Matiere[] = [];
   preferences: PreferenceMatiere[] = [];
 
+  // Matières préférées de chaque professeur pour le tableau
+  preferencesParProfesseur: { [id: number]: string[] } = {};
+
   matiereSelectionnee = 0;
   chargementPreferences = false;
   enregistrementPreference = false;
 
-  private apiPreferences =
-    'http://localhost:8081/api/preferences-matieres';
-
   constructor(
     private professeurService: ProfesseurService,
     private departementService: DepartementService,
-    private matiereService: MatiereService,
-    private http: HttpClient
+    private preferenceMatiereService: PreferenceMatiereService
   ) {}
 
   ngOnInit(): void {
     this.chargerProfesseurs();
     this.chargerDepartements();
   }
+
+  // ==========================================
+  // CHARGEMENT DES PROFESSEURS
+  // ==========================================
 
   chargerProfesseurs(): void {
     this.chargement = true;
@@ -90,13 +85,18 @@ export class EnseignantsComponent implements OnInit {
       next: (data) => {
         this.professeurs = data;
         this.chargement = false;
+
+        // Charger les matières préférées de chaque professeur
+        this.chargerPreferencesTableau();
       },
       error: (error) => {
         console.error('Erreur de chargement', error);
+
         this.messageErreur = this.messageHttp(
           error,
           'Impossible de charger les professeurs.'
         );
+
         this.chargement = false;
       }
     });
@@ -109,6 +109,7 @@ export class EnseignantsComponent implements OnInit {
       },
       error: (error) => {
         console.error('Erreur départements', error);
+
         this.messageErreur = this.messageHttp(
           error,
           'Impossible de charger les départements.'
@@ -116,6 +117,65 @@ export class EnseignantsComponent implements OnInit {
       }
     });
   }
+
+  // ==========================================
+  // MATIERES PREFEREES DANS LE TABLEAU
+  // ==========================================
+
+  chargerPreferencesTableau(): void {
+
+    this.preferencesParProfesseur = {};
+
+    if (this.professeurs.length === 0) {
+      return;
+    }
+
+    const requetes = this.professeurs.map(professeur =>
+      this.preferenceMatiereService
+        .getByProfesseur(professeur.id)
+        .pipe(catchError(error => {
+          console.error(
+            `Erreur préférences professeur ${professeur.id}`,
+            error
+          );
+
+          return of([]);
+        }))
+    );
+
+    forkJoin(requetes).subscribe({
+      next: (resultats) => {
+
+        this.professeurs.forEach((professeur, index) => {
+
+          this.preferencesParProfesseur[professeur.id] =
+            resultats[index].map(preference => preference.matiereNom);
+
+        });
+
+      },
+      error: (error) => {
+        console.error(
+          'Erreur chargement des matières préférées',
+          error
+        );
+      }
+    });
+  }
+
+  matieresPreferees(professeurId: number): string {
+    const matieres = this.preferencesParProfesseur[professeurId];
+
+    if (!matieres || matieres.length === 0) {
+      return 'Aucune matière';
+    }
+
+    return matieres.join(', ');
+  }
+
+  // ==========================================
+  // FORMULAIRE AJOUT PROFESSEUR
+  // ==========================================
 
   ouvrirFormulaire(): void {
     this.reinitialiserFormulaire();
@@ -216,9 +276,12 @@ export class EnseignantsComponent implements OnInit {
     });
   }
 
-  // Gestion des préférences
+  // ==========================================
+  // GESTION DES PREFERENCES
+  // ==========================================
 
   ouvrirPreferences(professeur: Professeur): void {
+
     this.professeurSelectionne = professeur;
     this.afficherPreferences = true;
 
@@ -239,21 +302,28 @@ export class EnseignantsComponent implements OnInit {
   }
 
   chargerMatieres(): void {
-    this.matiereService.getAll().subscribe({
+    this.preferenceMatiereService.getMatieres().subscribe({
       next: (data) => {
         this.matieres = data;
       },
       error: (error) => {
         console.error('Erreur chargement matières', error);
-        this.messageErreur = this.messageHttp(
-          error,
-          'Impossible de charger les matières.'
-        );
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: this.messageHttp(
+            error,
+            'Impossible de charger les matières.'
+          ),
+          confirmButtonText: 'OK'
+        });
       }
     });
   }
 
   chargerPreferences(): void {
+
     if (!this.professeurSelectionne) {
       return;
     }
@@ -262,104 +332,189 @@ export class EnseignantsComponent implements OnInit {
 
     const professeurId = this.professeurSelectionne.id;
 
-    this.http.get<PreferenceMatiere[]>(
-      `${this.apiPreferences}/professeur/${professeurId}`
-    ).subscribe({
-      next: (data) => {
-        this.preferences = data;
-        this.chargementPreferences = false;
-      },
-      error: (error) => {
-        console.error('Erreur chargement préférences', error);
-        this.messageErreur = this.messageHttp(
-          error,
-          'Impossible de charger les matières préférées.'
-        );
-        this.chargementPreferences = false;
-      }
-    });
+    this.preferenceMatiereService
+      .getByProfesseur(professeurId)
+      .subscribe({
+        next: (data) => {
+
+          this.preferences = data;
+
+          // Actualiser également le tableau
+          this.preferencesParProfesseur[professeurId] =
+            data.map(preference => preference.matiereNom);
+
+          this.chargementPreferences = false;
+        },
+
+        error: (error) => {
+          console.error('Erreur chargement préférences', error);
+
+          this.chargementPreferences = false;
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Erreur de chargement',
+            text: this.messageHttp(
+              error,
+              'Impossible de charger les matières préférées.'
+            ),
+            confirmButtonText: 'OK'
+          });
+        }
+      });
   }
 
   estMatiereSelectionnee(matiereId: number): boolean {
     return this.preferences.some(
-      preference => preference.matiere.id === matiereId
+      preference => preference.matiereId === matiereId
     );
   }
 
+  // ==========================================
+  // AJOUTER UNE MATIERE PREFEREE
+  // ==========================================
+
   ajouterPreference(): void {
+
     if (
       !this.professeurSelectionne ||
       Number(this.matiereSelectionnee) <= 0
     ) {
-      this.messageErreur = 'Veuillez choisir une matière.';
+      Swal.fire({
+        icon: 'warning',
+        title: 'Attention',
+        text: 'Veuillez choisir une matière.',
+        confirmButtonText: 'OK'
+      });
+
       return;
     }
 
-    if (this.estMatiereSelectionnee(
-      Number(this.matiereSelectionnee)
-    )) {
-      this.messageErreur =
-        'Cette matière est déjà sélectionnée.';
+    if (
+      this.estMatiereSelectionnee(
+        Number(this.matiereSelectionnee)
+      )
+    ) {
+      Swal.fire({
+        icon: 'info',
+        title: 'Matière déjà sélectionnée',
+        text: 'Cette matière figure déjà dans les préférences.',
+        confirmButtonText: 'OK'
+      });
+
       return;
     }
 
     this.enregistrementPreference = true;
-    this.messageErreur = '';
 
-    const params = new HttpParams()
-      .set('professeurId', this.professeurSelectionne.id)
-      .set('matiereId', Number(this.matiereSelectionnee));
+    const professeurId = this.professeurSelectionne.id;
+    const matiereId = Number(this.matiereSelectionnee);
 
-    this.http.post<PreferenceMatiere>(
-      this.apiPreferences,
-      null,
-      { params }
-    ).subscribe({
-      next: () => {
-        this.messageSucces =
-          'Matière ajoutée aux préférences !';
+    this.preferenceMatiereService
+      .ajouterPreference(professeurId, matiereId)
+      .subscribe({
 
-        this.matiereSelectionnee = 0;
-        this.enregistrementPreference = false;
-        this.chargerPreferences();
-      },
-      error: (error) => {
-        console.error('Erreur ajout préférence', error);
-        this.messageErreur = this.messageHttp(
-          error,
-          'Erreur lors de l’ajout de la préférence.'
-        );
-        this.enregistrementPreference = false;
-      }
-    });
+        next: () => {
+
+          this.matiereSelectionnee = 0;
+          this.enregistrementPreference = false;
+
+          this.chargerPreferences();
+          this.chargerPreferencesTableau();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'Matière ajoutée !',
+            text: 'La matière a été ajoutée aux préférences du professeur.',
+            confirmButtonText: 'Parfait',
+            timer: 2500,
+            timerProgressBar: true
+          });
+        },
+
+        error: (error) => {
+          console.error('Erreur ajout préférence', error);
+
+          this.enregistrementPreference = false;
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Échec de l’ajout',
+            text: this.messageHttp(
+              error,
+              'Erreur lors de l’ajout de la préférence.'
+            ),
+            confirmButtonText: 'OK'
+          });
+        }
+      });
   }
 
+  // ==========================================
+  // SUPPRIMER UNE MATIERE PREFEREE
+  // ==========================================
+
   supprimerPreference(matiereId: number): void {
+
     if (!this.professeurSelectionne) {
       return;
     }
 
-    const params = new HttpParams()
-      .set('professeurId', this.professeurSelectionne.id)
-      .set('matiereId', matiereId);
+    const professeurId = this.professeurSelectionne.id;
 
-    this.http.delete<void>(
-      this.apiPreferences,
-      { params }
-    ).subscribe({
-      next: () => {
-        this.messageSucces =
-          'Préférence supprimée avec succès !';
+    const preference = this.preferences.find(
+      pref => pref.matiereId === matiereId
+    );
 
-        this.chargerPreferences();
-      },
-      error: (error) => {
-        console.error('Erreur suppression préférence', error);
-        this.messageErreur = this.messageHttp(
-          error,
-          'Erreur lors de la suppression.'
-        );
+    const nomMatiere = preference?.matiereNom || 'cette matière';
+
+    Swal.fire({
+      icon: 'warning',
+      title: 'Supprimer cette préférence ?',
+      text: `Voulez-vous vraiment supprimer ${nomMatiere} ?`,
+      showCancelButton: true,
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler',
+      reverseButtons: true
+    }).then((result) => {
+
+      if (!result.isConfirmed) {
+        return;
       }
+
+      this.preferenceMatiereService
+        .supprimerPreference(professeurId, matiereId)
+        .subscribe({
+
+          next: () => {
+
+            this.chargerPreferences();
+            this.chargerPreferencesTableau();
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Préférence supprimée !',
+              text: 'La matière a été supprimée des préférences.',
+              confirmButtonText: 'OK',
+              timer: 2500,
+              timerProgressBar: true
+            });
+          },
+
+          error: (error) => {
+            console.error('Erreur suppression préférence', error);
+
+            Swal.fire({
+              icon: 'error',
+              title: 'Erreur de suppression',
+              text: this.messageHttp(
+                error,
+                'Erreur lors de la suppression de la préférence.'
+              ),
+              confirmButtonText: 'OK'
+            });
+          }
+        });
     });
   }
 
@@ -369,7 +524,12 @@ export class EnseignantsComponent implements OnInit {
     );
   }
 
+  // ==========================================
+  // GESTION DES ERREURS HTTP
+  // ==========================================
+
   private messageHttp(error: any, defaut: string): string {
+
     if (error.status === 401) {
       return 'Session expirée. Reconnectez-vous.';
     }

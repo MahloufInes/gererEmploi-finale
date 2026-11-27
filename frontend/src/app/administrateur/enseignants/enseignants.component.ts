@@ -133,24 +133,24 @@ export class EnseignantsComponent implements OnInit {
     const requetes = this.professeurs.map(professeur =>
       this.preferenceMatiereService
         .getByProfesseur(professeur.id)
-        .pipe(catchError(error => {
-          console.error(
-            `Erreur préférences professeur ${professeur.id}`,
-            error
-          );
+        .pipe(
+          catchError(error => {
+            console.error(
+              `Erreur préférences professeur ${professeur.id}`,
+              error
+            );
 
-          return of([]);
-        }))
+            return of([]);
+          })
+        )
     );
 
     forkJoin(requetes).subscribe({
       next: (resultats) => {
 
         this.professeurs.forEach((professeur, index) => {
-
           this.preferencesParProfesseur[professeur.id] =
             resultats[index].map(preference => preference.matiereNom);
-
         });
 
       },
@@ -208,6 +208,7 @@ export class EnseignantsComponent implements OnInit {
 
     const p = this.nouveauProfesseur;
 
+    // Vérification des champs obligatoires
     if (
       !p.nom.trim() ||
       !p.prenom.trim() ||
@@ -215,22 +216,37 @@ export class EnseignantsComponent implements OnInit {
       !p.specialite.trim() ||
       Number(p.departementId) <= 0
     ) {
-      this.messageErreur = 'Veuillez remplir tous les champs.';
+      Swal.fire({
+        icon: 'warning',
+        title: 'Champs obligatoires',
+        text: 'Veuillez remplir tous les champs.',
+        confirmButtonText: 'OK'
+      });
       return;
     }
 
+    // Vérification de l'adresse email
     const emailValide =
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(p.email.trim());
 
     if (!emailValide) {
-      this.messageErreur =
-        'Veuillez saisir une adresse email valide.';
+      Swal.fire({
+        icon: 'warning',
+        title: 'Email invalide',
+        text: 'Veuillez saisir une adresse email valide.',
+        confirmButtonText: 'OK'
+      });
       return;
     }
 
+    // Vérification du mot de passe
     if (!p.motDePasse || p.motDePasse.length < 8) {
-      this.messageErreur =
-        'Le mot de passe doit contenir au moins 8 caractères.';
+      Swal.fire({
+        icon: 'warning',
+        title: 'Mot de passe invalide',
+        text: 'Le mot de passe doit contenir au moins 8 caractères.',
+        confirmButtonText: 'OK'
+      });
       return;
     }
 
@@ -247,31 +263,45 @@ export class EnseignantsComponent implements OnInit {
 
     this.professeurService.ajouter(request).subscribe({
       next: () => {
-        this.messageSucces =
-          'Enseignant ajouté avec succès !';
-
         this.enregistrement = false;
         this.afficherFormulaire = false;
 
         this.reinitialiserFormulaire();
         this.chargerProfesseurs();
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Enseignant ajouté !',
+          text: 'L’enseignant a été ajouté avec succès.',
+          confirmButtonText: 'Parfait',
+          timer: 2500,
+          timerProgressBar: true
+        });
       },
 
       error: (error) => {
         console.error('Erreur ajout professeur', error);
         this.enregistrement = false;
 
+        let message = '';
+
         if (error.status === 409) {
-          this.messageErreur =
-            'Cette adresse email existe déjà.';
+          message = 'Cette adresse email existe déjà.';
         } else if (error.status === 404) {
-          this.messageErreur = 'Département introuvable.';
+          message = 'Département introuvable.';
         } else {
-          this.messageErreur = this.messageHttp(
+          message = this.messageHttp(
             error,
             'Erreur lors de l’ajout de l’enseignant.'
           );
         }
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Échec de l’ajout',
+          text: message,
+          confirmButtonText: 'OK'
+        });
       }
     });
   }

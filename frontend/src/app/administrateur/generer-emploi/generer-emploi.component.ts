@@ -1,5 +1,7 @@
+
 import { Component, OnInit } from '@angular/core';
 import { HttpClient, HttpParams } from '@angular/common/http';
+import Swal from 'sweetalert2';
 
 interface Filiere {
   id: number;
@@ -39,9 +41,14 @@ interface Horaire {
 })
 export class GenererEmploiComponent implements OnInit {
 
-  private apiFilieres = 'https://edttt-backend-api.onrender.com/api/filieres';
-  private apiGeneration = 'https://edttt-backend-api.onrender.com/api/generation/generer';
-  private apiSeances = 'https://edttt-backend-api.onrender.com/api/generation/emploi';
+  private apiFilieres =
+    'https://edttt-backend-api.onrender.com/api/filieres';
+
+  private apiGeneration =
+    'https://edttt-backend-api.onrender.com/api/generation/generer';
+
+  private apiSeances =
+    'https://edttt-backend-api.onrender.com/api/generation/emploi';
 
   filieres: Filiere[] = [];
   seances: Seance[] = [];
@@ -75,6 +82,10 @@ export class GenererEmploiComponent implements OnInit {
     this.chargerFilieres();
   }
 
+  // ==========================================
+  // SÉANCES PAR GROUPE
+  // ==========================================
+
   get seancesParGroupe(): [string, Seance[]][] {
     const map: { [groupe: string]: Seance[] } = {};
 
@@ -88,6 +99,10 @@ export class GenererEmploiComponent implements OnInit {
     );
   }
 
+  // ==========================================
+  // HORAIRES
+  // ==========================================
+
   get horaires(): Horaire[] {
     const map = new Map<string, string>();
 
@@ -99,6 +114,10 @@ export class GenererEmploiComponent implements OnInit {
       .map(([debut, fin]) => ({ debut, fin }))
       .sort((a, b) => a.debut.localeCompare(b.debut));
   }
+
+  // ==========================================
+  // UTILITAIRES
+  // ==========================================
 
   normaliserJour(jour: string): string {
     return (jour || '')
@@ -134,6 +153,10 @@ export class GenererEmploiComponent implements OnInit {
     return valeur || 'SÉANCE';
   }
 
+  // ==========================================
+  // CHARGER LES FILIÈRES
+  // ==========================================
+
   chargerFilieres(): void {
     this.chargementFilieres = true;
     this.erreur = '';
@@ -145,15 +168,34 @@ export class GenererEmploiComponent implements OnInit {
       },
       error: err => {
         console.error('Erreur chargement filières :', err);
+
         this.erreur = 'Impossible de charger les filières.';
         this.chargementFilieres = false;
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur de chargement',
+          text: this.extraireErreur(err),
+          confirmButtonText: 'OK'
+        });
       }
     });
   }
 
+  // ==========================================
+  // GÉNÉRER L'EMPLOI DU TEMPS
+  // ==========================================
+
   generer(): void {
+
     if (this.filiereId === null) {
-      this.erreur = 'Veuillez sélectionner une filière.';
+      Swal.fire({
+        icon: 'warning',
+        title: 'Filière obligatoire',
+        text: 'Veuillez sélectionner une filière avant de continuer.',
+        confirmButtonText: 'OK'
+      });
+
       return;
     }
 
@@ -173,19 +215,44 @@ export class GenererEmploiComponent implements OnInit {
       null,
       { params }
     ).subscribe({
+
       next: response => {
         this.resultat = response;
         this.succes = response.message;
         this.generationEnCours = false;
+
+        Swal.fire({
+          icon: 'success',
+          title: 'Génération réussie !',
+          text: response.message ||
+            'L’emploi du temps a été généré avec succès.',
+          confirmButtonText: 'Parfait',
+          timer: 3000,
+          timerProgressBar: true
+        });
+
         this.chargerSeances(response.emploiDuTempsId);
       },
+
       error: err => {
         console.error('Erreur génération :', err);
+
         this.erreur = this.extraireErreur(err);
         this.generationEnCours = false;
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Échec de la génération',
+          text: this.erreur,
+          confirmButtonText: 'OK'
+        });
       }
     });
   }
+
+  // ==========================================
+  // CHARGER LES SÉANCES
+  // ==========================================
 
   chargerSeances(emploiId: number): void {
     this.chargementSeances = true;
@@ -193,18 +260,33 @@ export class GenererEmploiComponent implements OnInit {
     this.http.get<Seance[]>(
       `${this.apiSeances}/${emploiId}/seances`
     ).subscribe({
+
       next: data => {
         this.seances = data;
         this.chargementSeances = false;
       },
+
       error: err => {
         console.error('Erreur chargement séances :', err);
+
         this.erreur =
           'L’emploi du temps est généré, mais impossible de charger les séances.';
+
         this.chargementSeances = false;
+
+        Swal.fire({
+          icon: 'warning',
+          title: 'Emploi du temps généré',
+          text: this.erreur,
+          confirmButtonText: 'OK'
+        });
       }
     });
   }
+
+  // ==========================================
+  // EXTRACTION DES ERREURS HTTP
+  // ==========================================
 
   private extraireErreur(err: any): string {
     const backendError = err.error;
@@ -217,6 +299,18 @@ export class GenererEmploiComponent implements OnInit {
       return backendError.message
         || backendError.error
         || JSON.stringify(backendError);
+    }
+
+    if (err.status === 401) {
+      return 'Session expirée. Veuillez vous reconnecter.';
+    }
+
+    if (err.status === 403) {
+      return 'Accès refusé. Vous devez être administrateur.';
+    }
+
+    if (err.status === 0) {
+      return 'Impossible de contacter le serveur. Vérifiez votre connexion.';
     }
 
     return err.message

@@ -1,6 +1,7 @@
 
 import { Component, OnInit } from '@angular/core';
 import { HttpClient } from '@angular/common/http';
+import Swal from 'sweetalert2';
 
 interface Departement {
   id: number;
@@ -89,23 +90,42 @@ export class CrudDepartementsComponent implements OnInit {
     };
 
     if (this.editingId === null) {
+
+      // AJOUT
       this.http.post<Departement>(this.api, request).subscribe({
         next: () => {
           this.close();
           this.chargerDepartements();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'Département ajouté !',
+            text: 'Le département a été ajouté avec succès.',
+            confirmButtonText: 'OK'
+          });
         },
         error: (err) => {
           console.error(err);
           this.erreur = err.error?.message || 'Erreur lors de l’ajout.';
         }
       });
+
     } else {
+
+      // MODIFICATION
       this.http.put<Departement>(
         `${this.api}/${this.editingId}`, request
       ).subscribe({
         next: () => {
           this.close();
           this.chargerDepartements();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'Modification réussie !',
+            text: 'Le département a été modifié avec succès.',
+            confirmButtonText: 'OK'
+          });
         },
         error: (err) => {
           console.error(err);
@@ -116,15 +136,41 @@ export class CrudDepartementsComponent implements OnInit {
   }
 
   supprimer(d: Departement): void {
-    if (!confirm(`Voulez-vous supprimer le département ${d.nom} ?`)) {
-      return;
-    }
 
-    this.http.delete(`${this.api}/${d.id}`).subscribe({
-      next: () => this.chargerDepartements(),
-      error: (err) => {
-        console.error(err);
-        alert(err.error?.message || 'Impossible de supprimer ce département.');
+    // CONFIRMATION DE SUPPRESSION
+    Swal.fire({
+      title: 'Êtes-vous sûr ?',
+      text: `Voulez-vous supprimer le département ${d.nom} ?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler',
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#3085d6'
+    }).then((result) => {
+
+      if (result.isConfirmed) {
+        this.http.delete(`${this.api}/${d.id}`).subscribe({
+          next: () => {
+            this.chargerDepartements();
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Supprimé !',
+              text: 'Le département a été supprimé avec succès.',
+              confirmButtonText: 'OK'
+            });
+          },
+          error: (err) => {
+            console.error(err);
+
+            Swal.fire({
+              icon: 'error',
+              title: 'Erreur',
+              text: err.error?.message || 'Impossible de supprimer ce département.'
+            });
+          }
+        });
       }
     });
   }

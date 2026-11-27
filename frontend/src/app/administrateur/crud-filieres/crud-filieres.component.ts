@@ -38,9 +38,14 @@ interface Matiere {
 })
 export class CrudFilieresComponent implements OnInit {
 
-  private apiFilieres = 'https://edttt-backend-api.onrender.com/api/filieres';
-  private apiDepartements = 'https://edttt-backend-api.onrender.com/api/departements';
-  private apiMatieres = 'https://edttt-backend-api.onrender.com/api/matieres';
+  private apiFilieres =
+    'https://edttt-backend-api.onrender.com/api/filieres';
+
+  private apiDepartements =
+    'https://edttt-backend-api.onrender.com/api/departements';
+
+  private apiMatieres =
+    'https://edttt-backend-api.onrender.com/api/matieres';
 
   filieres: Filiere[] = [];
   departements: Departement[] = [];
@@ -54,6 +59,7 @@ export class CrudFilieresComponent implements OnInit {
 
   showForm = false;
   editingId: number | null = null;
+
   search = '';
   erreur = '';
   chargement = false;
@@ -71,6 +77,7 @@ export class CrudFilieresComponent implements OnInit {
     this.chargerMatieres();
   }
 
+  // CHARGER LES FILIERES
   chargerFilieres(): void {
     this.chargement = true;
 
@@ -81,22 +88,38 @@ export class CrudFilieresComponent implements OnInit {
       },
       error: err => {
         console.error(err);
-        this.erreur = 'Impossible de charger les filières.';
         this.chargement = false;
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur de chargement',
+          text: 'Impossible de charger les filières.',
+          confirmButtonColor: '#5142a5'
+        });
       }
     });
   }
 
+  // CHARGER LES DEPARTEMENTS
   chargerDepartements(): void {
     this.http.get<Departement[]>(this.apiDepartements).subscribe({
-      next: data => this.departements = data,
+      next: data => {
+        this.departements = data;
+      },
       error: err => {
         console.error(err);
-        this.erreur = 'Impossible de charger les départements.';
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: 'Impossible de charger les départements.',
+          confirmButtonColor: '#5142a5'
+        });
       }
     });
   }
 
+  // CHARGER LES MATIERES
   chargerMatieres(): void {
     this.http.get<Matiere[]>(this.apiMatieres).subscribe({
       next: data => {
@@ -104,11 +127,18 @@ export class CrudFilieresComponent implements OnInit {
       },
       error: err => {
         console.error(err);
-        this.erreur = 'Impossible de charger les matières.';
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: 'Impossible de charger les matières.',
+          confirmButtonColor: '#5142a5'
+        });
       }
     });
   }
 
+  // RECHERCHE
   get filtered(): Filiere[] {
     const q = this.search.toLowerCase().trim();
 
@@ -117,21 +147,21 @@ export class CrudFilieresComponent implements OnInit {
     );
   }
 
-  // Check whether a subject is already associated
+  // VERIFIER SI UNE MATIERE EST DEJA SELECTIONNEE
   isMatiereSelected(matiereId: number): boolean {
     return this.matieresSelectionnees.some(
       m => m.matiereId === matiereId
     );
   }
 
-  // Get all semester associations for a subject
+  // RECUPERER LES ASSOCIATIONS D'UNE MATIERE
   getAssociations(matiereId: number): FiliereMatiere[] {
     return this.matieresSelectionnees.filter(
       m => m.matiereId === matiereId
     );
   }
 
-  // Add a subject association for a semester
+  // AJOUTER UNE ASSOCIATION
   ajouterAssociation(matiereId: number): void {
     this.matieresSelectionnees.push({
       matiereId,
@@ -141,7 +171,7 @@ export class CrudFilieresComponent implements OnInit {
     });
   }
 
-  // Remove one subject-semester association
+  // SUPPRIMER UNE ASSOCIATION
   supprimerAssociation(association: FiliereMatiere): void {
     this.matieresSelectionnees =
       this.matieresSelectionnees.filter(
@@ -149,7 +179,7 @@ export class CrudFilieresComponent implements OnInit {
       );
   }
 
-  // Update semester
+  // MODIFIER LE SEMESTRE
   modifierSemestre(
     association: FiliereMatiere,
     semestre: string
@@ -157,7 +187,7 @@ export class CrudFilieresComponent implements OnInit {
     association.semestre = semestre;
   }
 
-  // Update weekly hours
+  // MODIFIER LES HEURES
   modifierHeures(
     association: FiliereMatiere,
     type: 'heuresCours' | 'heuresTP',
@@ -166,7 +196,7 @@ export class CrudFilieresComponent implements OnInit {
     association[type] = Number(valeur);
   }
 
-  // Open add form
+  // OUVRIR LE FORMULAIRE D'AJOUT
   openAdd(): void {
     this.editingId = null;
 
@@ -182,7 +212,7 @@ export class CrudFilieresComponent implements OnInit {
     this.showForm = true;
   }
 
-  // Open edit form
+  // OUVRIR LE FORMULAIRE DE MODIFICATION
   openEdit(filiere: Filiere): void {
     this.editingId = filiere.id;
 
@@ -204,19 +234,24 @@ export class CrudFilieresComponent implements OnInit {
     this.showForm = true;
   }
 
-  // Save filière
+  // ENREGISTRER : AJOUT OU MODIFICATION
   save(): void {
 
-    if (!this.form.nom.trim() || this.form.departementId <= 0) {
+    // VERIFICATION DES CHAMPS
+    if (
+      !this.form.nom.trim() ||
+      this.form.departementId <= 0
+    ) {
       Swal.fire({
         icon: 'warning',
         title: 'Champs obligatoires',
-        text: 'Veuillez remplir tous les champs.',
+        text: 'Veuillez remplir le nom et sélectionner un département.',
         confirmButtonColor: '#5142a5'
       });
       return;
     }
 
+    // VERIFICATION DES MATIERES
     if (this.matieresSelectionnees.length === 0) {
       Swal.fire({
         icon: 'warning',
@@ -227,14 +262,16 @@ export class CrudFilieresComponent implements OnInit {
       return;
     }
 
-    const associationInvalide = this.matieresSelectionnees.some(m =>
-      !m.semestre ||
-      !this.semestresDisponibles.includes(m.semestre) ||
-      m.heuresCours < 0 ||
-      m.heuresTP < 0 ||
-      !Number.isFinite(m.heuresCours) ||
-      !Number.isFinite(m.heuresTP)
-    );
+    // VERIFICATION DES SEMESTRES ET DES HEURES
+    const associationInvalide =
+      this.matieresSelectionnees.some(m =>
+        !m.semestre ||
+        !this.semestresDisponibles.includes(m.semestre) ||
+        !Number.isFinite(m.heuresCours) ||
+        !Number.isFinite(m.heuresTP) ||
+        m.heuresCours < 0 ||
+        m.heuresTP < 0
+      );
 
     if (associationInvalide) {
       Swal.fire({
@@ -246,7 +283,7 @@ export class CrudFilieresComponent implements OnInit {
       return;
     }
 
-    // Prevent duplicate subject + semester associations
+    // VERIFICATION DES DOUBLONS MATIERE + SEMESTRE
     const associations = this.matieresSelectionnees.map(
       m => `${m.matiereId}-${m.semestre}`
     );
@@ -261,6 +298,7 @@ export class CrudFilieresComponent implements OnInit {
       return;
     }
 
+    // PREPARATION DE LA REQUETE
     const request = {
       nom: this.form.nom.trim(),
       departementId: this.form.departementId,
@@ -274,6 +312,7 @@ export class CrudFilieresComponent implements OnInit {
 
     if (this.editingId === null) {
 
+      // AJOUT D'UNE FILIERE
       this.http.post(this.apiFilieres, request).subscribe({
         next: () => {
           this.close();
@@ -291,8 +330,9 @@ export class CrudFilieresComponent implements OnInit {
 
           Swal.fire({
             icon: 'error',
-            title: 'Erreur',
-            text: err.error?.message || 'Erreur lors de l’ajout de la filière.',
+            title: 'Erreur lors de l’ajout',
+            text: err.error?.message ||
+              'Erreur lors de l’ajout de la filière.',
             confirmButtonColor: '#5142a5'
           });
         }
@@ -300,6 +340,7 @@ export class CrudFilieresComponent implements OnInit {
 
     } else {
 
+      // MODIFICATION D'UNE FILIERE
       this.http.put(
         `${this.apiFilieres}/${this.editingId}`,
         request
@@ -320,8 +361,9 @@ export class CrudFilieresComponent implements OnInit {
 
           Swal.fire({
             icon: 'error',
-            title: 'Erreur',
-            text: err.error?.message || 'Erreur lors de la modification.',
+            title: 'Erreur lors de la modification',
+            text: err.error?.message ||
+              'Erreur lors de la modification de la filière.',
             confirmButtonColor: '#5142a5'
           });
         }
@@ -329,10 +371,11 @@ export class CrudFilieresComponent implements OnInit {
     }
   }
 
-  // Delete filière
+  // SUPPRIMER UNE FILIERE
   supprimer(filiere: Filiere): void {
+
     Swal.fire({
-      title: 'Êtes-vous sûre ?',
+      title: 'Êtes-vous sûr ?',
       text: `Voulez-vous supprimer la filière ${filiere.nom} ?`,
       icon: 'warning',
       showCancelButton: true,
@@ -343,6 +386,7 @@ export class CrudFilieresComponent implements OnInit {
     }).then(result => {
 
       if (result.isConfirmed) {
+
         this.http.delete(
           `${this.apiFilieres}/${filiere.id}`
         ).subscribe({
@@ -351,8 +395,8 @@ export class CrudFilieresComponent implements OnInit {
 
             Swal.fire({
               icon: 'success',
-              title: 'Supprimée !',
-              text: 'La filière a été supprimée.',
+              title: 'Filière supprimée !',
+              text: 'La filière a été supprimée avec succès.',
               confirmButtonColor: '#5142a5'
             });
           },
@@ -372,10 +416,16 @@ export class CrudFilieresComponent implements OnInit {
     });
   }
 
+  // FERMER LE FORMULAIRE
   close(): void {
     this.showForm = false;
     this.editingId = null;
     this.matieresSelectionnees = [];
     this.erreur = '';
+
+    this.form = {
+      nom: '',
+      departementId: 0
+    };
   }
 }

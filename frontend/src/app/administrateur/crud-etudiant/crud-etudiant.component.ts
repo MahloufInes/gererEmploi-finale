@@ -3,6 +3,7 @@ import { Component, OnInit } from '@angular/core';
 import { FormBuilder, Validators } from '@angular/forms';
 import { HttpClient } from '@angular/common/http';
 import Swal from 'sweetalert2';
+
 interface Groupe {
   id: number;
   nom: string;
@@ -25,12 +26,15 @@ interface Etudiant {
 @Component({
   selector: 'app-crud-etudiant',
   templateUrl: './crud-etudiant.component.html',
-  styleUrls: ['./crud-etudiant.component.css'],
+  styleUrls: ['./crud-etudiant.component.css']
 })
 export class CrudEtudiantComponent implements OnInit {
 
-  private apiEtudiants = 'https://edttt-backend-api.onrender.com/api/etudiants';
-  private apiGroupes = 'https://edttt-backend-api.onrender.com/api/groupes';
+  private apiEtudiants =
+    'https://edttt-backend-api.onrender.com/api/etudiants';
+
+  private apiGroupes =
+    'https://edttt-backend-api.onrender.com/api/groupes';
 
   etudiants: Etudiant[] = [];
   groupes: Groupe[] = [];
@@ -66,6 +70,7 @@ export class CrudEtudiantComponent implements OnInit {
     this.chargerEtudiants();
   }
 
+  // CHARGER LES GROUPES
   chargerGroupes(): void {
     this.http.get<Groupe[]>(this.apiGroupes).subscribe({
       next: (data) => {
@@ -73,11 +78,18 @@ export class CrudEtudiantComponent implements OnInit {
       },
       error: (err) => {
         console.error('Erreur chargement groupes :', err);
-        this.erreur = 'Impossible de charger les groupes.';
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur',
+          text: 'Impossible de charger les groupes.',
+          confirmButtonColor: '#5142a5'
+        });
       }
     });
   }
 
+  // CHARGER LES ETUDIANTS
   chargerEtudiants(): void {
     this.loading = true;
 
@@ -88,12 +100,20 @@ export class CrudEtudiantComponent implements OnInit {
       },
       error: (err) => {
         console.error('Erreur chargement étudiants :', err);
-        this.erreur = 'Impossible de charger les étudiants.';
+
         this.loading = false;
+
+        Swal.fire({
+          icon: 'error',
+          title: 'Erreur de chargement',
+          text: 'Impossible de charger les étudiants.',
+          confirmButtonColor: '#5142a5'
+        });
       }
     });
   }
 
+  // RECHERCHE
   get filtered(): Etudiant[] {
     const q = this.search.trim().toLowerCase();
 
@@ -104,196 +124,219 @@ export class CrudEtudiantComponent implements OnInit {
     );
   }
 
+  // NOMBRE DE FILIERES
   get nbFilieres(): number {
     return new Set(
       this.etudiants.map(e => e.filiere.trim().toLowerCase())
     ).size;
   }
 
+  // NOMBRE DE GROUPES
   get nbGroupes(): number {
     return new Set(this.etudiants.map(e => e.groupeId)).size;
   }
 
+  // INITIALES DE L'ETUDIANT
   initiales(e: Etudiant): string {
     return (e.prenom.charAt(0) + e.nom.charAt(0)).toUpperCase();
   }
 
+  // COULEUR DE L'AVATAR
   couleur(e: Etudiant): string {
     return this.couleurs[e.id % this.couleurs.length];
   }
 
- openAdd(): void {
-  this.editingId = null;
+  // OUVRIR LE FORMULAIRE D'AJOUT
+  openAdd(): void {
+    this.editingId = null;
 
-  this.form.reset({
-    nom: '',
-    prenom: '',
-    email: '',
-    matricule: '',
-    motDePasse: '',
-    groupeId: null
-  });
-
-  // Le mot de passe est obligatoire lors de l'ajout
-  this.form.get('motDePasse')?.setValidators(Validators.required);
-  this.form.get('motDePasse')?.updateValueAndValidity();
-
-  this.erreur = '';
-  this.showForm = true;
-}
-
-save(): void {
-  if (this.form.invalid) {
-    this.form.markAllAsTouched();
-
-    Swal.fire({
-      icon: 'warning',
-      title: 'Champs obligatoires',
-      text: 'Veuillez remplir tous les champs obligatoires.',
-      confirmButtonColor: '#5142a5'
+    this.form.reset({
+      nom: '',
+      prenom: '',
+      email: '',
+      matricule: '',
+      motDePasse: '',
+      groupeId: null
     });
 
-    return;
+    // Mot de passe obligatoire pour l'ajout
+    this.form.get('motDePasse')?.setValidators(Validators.required);
+    this.form.get('motDePasse')?.updateValueAndValidity();
+
+    this.erreur = '';
+    this.showForm = true;
   }
 
-  const v = this.form.getRawValue();
+  // OUVRIR LE FORMULAIRE DE MODIFICATION
+  openEdit(e: Etudiant): void {
+    this.editingId = e.id;
 
-  const request: any = {
-    nom: v.nom!,
-    prenom: v.prenom!,
-    email: v.email!,
-    matricule: v.matricule!,
-    groupeId: v.groupeId!
-  };
-
-  // Ajouter le mot de passe seulement s'il est renseigné
-  if (v.motDePasse?.trim()) {
-    request.motDePasse = v.motDePasse;
-  }
-
-  if (this.editingId === null) {
-
-    this.http.post(this.apiEtudiants, {
-      ...request,
-      motDePasse: v.motDePasse
-    }).subscribe({
-      next: () => {
-        this.close();
-        this.chargerEtudiants();
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Étudiant ajouté !',
-          text: 'L’étudiant a été ajouté avec succès.',
-          confirmButtonColor: '#5142a5'
-        });
-      },
-      error: err => {
-        console.error(err);
-
-        Swal.fire({
-          icon: 'error',
-          title: 'Erreur',
-          text: err.error?.message || 'Erreur lors de l’ajout.',
-          confirmButtonColor: '#5142a5'
-        });
-      }
+    this.form.reset({
+      nom: e.nom,
+      prenom: e.prenom,
+      email: e.email,
+      matricule: e.matricule,
+      motDePasse: '',
+      groupeId: e.groupeId
     });
 
-  } else {
+    // Mot de passe facultatif pour la modification
+    this.form.get('motDePasse')?.clearValidators();
+    this.form.get('motDePasse')?.updateValueAndValidity();
 
-    this.http.put(
-      `${this.apiEtudiants}/${this.editingId}`,
-      request
-    ).subscribe({
-      next: () => {
-        this.close();
-        this.chargerEtudiants();
-
-        Swal.fire({
-          icon: 'success',
-          title: 'Modification réussie !',
-          text: 'Les informations ont été modifiées.',
-          confirmButtonColor: '#5142a5'
-        });
-      },
-      error: err => {
-        console.error(err);
-
-        Swal.fire({
-          icon: 'error',
-          title: 'Erreur',
-          text: err.error?.message || 'Erreur lors de la modification.',
-          confirmButtonColor: '#5142a5'
-        });
-      }
-    });
+    this.erreur = '';
+    this.showForm = true;
   }
-}
- openEdit(e: Etudiant): void {
-  this.editingId = e.id;
 
-  this.form.reset({
-    nom: e.nom,
-    prenom: e.prenom,
-    email: e.email,
-    matricule: e.matricule,
-    motDePasse: '',
-    groupeId: e.groupeId
-  });
+  // AJOUT ET MODIFICATION
+  save(): void {
 
-  this.form.get('motDePasse')?.clearValidators();
-  this.form.get('motDePasse')?.updateValueAndValidity();
+    if (this.form.invalid) {
+      this.form.markAllAsTouched();
 
-  this.erreur = '';
-  this.showForm = true;
-}
-supprimer(e: Etudiant): void {
+      Swal.fire({
+        icon: 'warning',
+        title: 'Champs obligatoires',
+        text: 'Veuillez remplir tous les champs obligatoires.',
+        confirmButtonColor: '#5142a5'
+      });
 
-  Swal.fire({
-    title: 'Êtes-vous sûr ?',
-    text: `Voulez-vous supprimer ${e.prenom} ${e.nom} ?`,
-    icon: 'warning',
-    showCancelButton: true,
-    confirmButtonColor: '#d33',
-    cancelButtonColor: '#6c757d',
-    confirmButtonText: 'Oui, supprimer',
-    cancelButtonText: 'Annuler'
-  }).then(result => {
+      return;
+    }
 
-    if (result.isConfirmed) {
+    const v = this.form.getRawValue();
 
-      this.http.delete(`${this.apiEtudiants}/${e.id}`).subscribe({
+    const request: any = {
+      nom: v.nom!.trim(),
+      prenom: v.prenom!.trim(),
+      email: v.email!.trim(),
+      matricule: v.matricule!.trim(),
+      groupeId: v.groupeId!
+    };
+
+    // Ajouter le mot de passe seulement s'il est renseigné
+    if (v.motDePasse?.trim()) {
+      request.motDePasse = v.motDePasse;
+    }
+
+    if (this.editingId === null) {
+
+      // AJOUT D'UN ETUDIANT
+      this.http.post(this.apiEtudiants, request).subscribe({
         next: () => {
+          this.close();
           this.chargerEtudiants();
 
           Swal.fire({
             icon: 'success',
-            title: 'Supprimé !',
-            text: 'L’étudiant a été supprimé.',
+            title: 'Étudiant ajouté !',
+            text: 'L’étudiant a été ajouté avec succès.',
             confirmButtonColor: '#5142a5'
           });
         },
-        error: err => {
+        error: (err) => {
           console.error(err);
 
           Swal.fire({
             icon: 'error',
-            title: 'Impossible de supprimer',
-            text: err.error?.message || 'Erreur lors de la suppression.',
+            title: 'Erreur lors de l’ajout',
+            text: err.error?.message || 'Impossible d’ajouter cet étudiant.',
+            confirmButtonColor: '#5142a5'
+          });
+        }
+      });
+
+    } else {
+
+      // MODIFICATION D'UN ETUDIANT
+      this.http.put(
+        `${this.apiEtudiants}/${this.editingId}`,
+        request
+      ).subscribe({
+        next: () => {
+          this.close();
+          this.chargerEtudiants();
+
+          Swal.fire({
+            icon: 'success',
+            title: 'Modification réussie !',
+            text: 'Les informations de l’étudiant ont été modifiées.',
+            confirmButtonColor: '#5142a5'
+          });
+        },
+        error: (err) => {
+          console.error(err);
+
+          Swal.fire({
+            icon: 'error',
+            title: 'Erreur lors de la modification',
+            text: err.error?.message || 'Impossible de modifier cet étudiant.',
             confirmButtonColor: '#5142a5'
           });
         }
       });
     }
-  });
-}
-  close(): void {
-  this.showForm = false;
-  this.editingId = null;
+  }
 
-  // Réactiver le mot de passe obligatoire pour l'ajout
-  this.form.get('motDePasse')?.setValidators(Validators.required);
-  this.form.get('motDePasse')?.updateValueAndValidity();
-}
+  // SUPPRESSION D'UN ETUDIANT
+  supprimer(e: Etudiant): void {
+
+    Swal.fire({
+      title: 'Êtes-vous sûr ?',
+      text: `Voulez-vous supprimer ${e.prenom} ${e.nom} ?`,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#d33',
+      cancelButtonColor: '#6c757d',
+      confirmButtonText: 'Oui, supprimer',
+      cancelButtonText: 'Annuler'
+    }).then(result => {
+
+      if (result.isConfirmed) {
+
+        this.http.delete(`${this.apiEtudiants}/${e.id}`).subscribe({
+          next: () => {
+            this.chargerEtudiants();
+
+            Swal.fire({
+              icon: 'success',
+              title: 'Supprimé !',
+              text: 'L’étudiant a été supprimé avec succès.',
+              confirmButtonColor: '#5142a5'
+            });
+          },
+          error: (err) => {
+            console.error(err);
+
+            Swal.fire({
+              icon: 'error',
+              title: 'Impossible de supprimer',
+              text: err.error?.message || 'Erreur lors de la suppression.',
+              confirmButtonColor: '#5142a5'
+            });
+          }
+        });
+      }
+    });
+  }
+
+  // FERMER LE FORMULAIRE
+  close(): void {
+    this.showForm = false;
+    this.editingId = null;
+    this.erreur = '';
+
+    this.form.reset({
+      nom: '',
+      prenom: '',
+      email: '',
+      matricule: '',
+      motDePasse: '',
+      groupeId: null
+    });
+
+    // Réactiver le mot de passe obligatoire pour le prochain ajout
+    this.form.get('motDePasse')?.setValidators(Validators.required);
+    this.form.get('motDePasse')?.updateValueAndValidity();
+  }
 }
